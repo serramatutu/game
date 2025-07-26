@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-game = { path = "../game" }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
 sdl3 = { workspace = true }
+libloading = { workspace = true }
