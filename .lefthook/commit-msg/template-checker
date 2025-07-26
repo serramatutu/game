@@ -1,0 +1,11 @@
+#!/bin/bash
+
+REGEX='^(build|chore|game|engine)(\([\w\-]*\w\))?: (\w+ )*\w+$'
+
+INPUT_FILE="$1"
+START_LINE=$(head -n1 $INPUT_FILE)
+
+if ! echo "$START_LINE" | grep -qE "$REGEX"; then
+  echo "Bad commit message."
+  exit 1
+fi

@@ -1,0 +1,10 @@
+pre-commit:
+  jobs:
+    - name: check
+      run: just check
+
+commit-msg:
+  scripts:
+    template-checker:
+      runner: bash
+
