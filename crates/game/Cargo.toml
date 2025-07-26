@@ -7,5 +7,12 @@ edition = "2024"
 crate-type = ["dylib"]
 
 [dependencies]
+shared = { path = "../shared" }
+
+allocator-api2 = { workspace = true }
 anyhow = { workspace = true }
 sdl3 = { workspace = true }
+
+
+[features]
+nightly = []

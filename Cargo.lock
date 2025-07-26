@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "allocator-api2"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78200ac3468a57d333cd0ea5dd398e25111194dcacd49208afca95c629a6311d"
+
+[[package]]
 name = "anyhow"
 version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12,9 +18,11 @@ checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 name = "binary"
 version = "0.1.0"
 dependencies = [
+ "allocator-api2",
  "anyhow",
  "libloading",
  "sdl3",
+ "shared",
  "thiserror",
 ]
 
@@ -52,8 +60,10 @@ dependencies = [
 name = "game"
 version = "0.1.0"
 dependencies = [
+ "allocator-api2",
  "anyhow",
  "sdl3",
+ "shared",
 ]
 
 [[package]]
@@ -167,6 +177,14 @@ dependencies = [
  "rpkg-config",
  "sdl3-sys",
  "sdl3-ttf-src",
+]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
+dependencies = [
+ "allocator-api2",
+ "sdl3",
 ]
 
 [[package]]

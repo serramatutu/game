@@ -4,7 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+shared = { path = "../shared" }
+
+allocator-api2 = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 sdl3 = { workspace = true }
 libloading = { workspace = true }
+
+[features]
+nightly = []
