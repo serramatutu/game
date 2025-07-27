@@ -40,7 +40,7 @@ pub fn update_and_render(params: UpdateAndRenderParams) -> Result<bool> {
         state.pos -= params.screen_w;
     }
 
-    params.canvas.set_draw_color(Color::RGB(255, 0, 0));
+    params.canvas.set_draw_color(Color::RGB(0, 255, 0));
     params.canvas.draw_rect(FRect {
         x: state.pos as f32,
         y: 10.0,
