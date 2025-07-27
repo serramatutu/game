@@ -4,12 +4,13 @@ use sdl3::{
     EventPump,
     event::Event,
     keyboard::{Keycode, Mod},
+    mouse::MouseButton,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Key {
-    key: Keycode,
-    key_mod: Mod,
+    pub key: Keycode,
+    pub key_mod: Mod,
 }
 
 impl Default for Key {
@@ -21,8 +22,29 @@ impl Default for Key {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Mouse {
+    pub btn: MouseButton,
+    pub x: f32,
+    pub y: f32,
+    pub clicks: u8,
+}
+
+impl Default for Mouse {
+    fn default() -> Self {
+        Self {
+            btn: MouseButton::Unknown,
+            x: 0.0,
+            y: 0.0,
+            clicks: 0,
+        }
+    }
+}
+
 pub struct Events {
     pump: EventPump,
+    mouse_up: [Mouse; 8],
+    mouse_down: [Mouse; 8],
     key_up: [Key; 64],
     key_down: [Key; 64],
 }
@@ -31,6 +53,8 @@ impl Events {
     pub fn new(pump: EventPump) -> Events {
         Events {
             pump,
+            mouse_up: [Mouse::default(); 8],
+            mouse_down: [Mouse::default(); 8],
             key_down: [Key::default(); 64],
             key_up: [Key::default(); 64],
         }
@@ -38,18 +62,30 @@ impl Events {
 
     // Flush all current events
     pub fn clear(&mut self) {
+        self.mouse_up[0] = Mouse::default();
+        self.mouse_down[0] = Mouse::default();
         self.key_up[0] = Key::default();
         self.key_down[0] = Key::default();
     }
 
     /// Rescan the event pump for the newest events
     pub fn scan(&mut self) {
-        let mut up = self
+        let mut mouse_up = self
+            .mouse_up
+            .iter()
+            .position(|k| k == &Mouse::default())
+            .unwrap_or(self.mouse_up.len());
+        let mut mouse_down = self
+            .mouse_down
+            .iter()
+            .position(|k| k == &Mouse::default())
+            .unwrap_or(self.mouse_down.len());
+        let mut key_up = self
             .key_up
             .iter()
             .position(|k| k == &Key::default())
             .unwrap_or(self.key_up.len());
-        let mut down = self
+        let mut key_down = self
             .key_down
             .iter()
             .position(|k| k == &Key::default())
@@ -57,10 +93,52 @@ impl Events {
 
         for event in self.pump.poll_iter() {
             match event {
+                Event::MouseButtonUp {
+                    x, y, mouse_btn, ..
+                } => {
+                    if mouse_up >= self.mouse_up.len() {
+                        sdl3::log::log_warn(
+                            sdl3::log::Category::Input,
+                            "mouse_up buffer is full, dropping event",
+                        );
+                        continue;
+                    }
+
+                    self.mouse_up[mouse_up] = Mouse {
+                        x,
+                        y,
+                        btn: mouse_btn,
+                        clicks: 0,
+                    };
+                    mouse_up += 1;
+                }
+                Event::MouseButtonDown {
+                    x,
+                    y,
+                    mouse_btn,
+                    clicks,
+                    ..
+                } => {
+                    if mouse_down >= self.mouse_down.len() {
+                        sdl3::log::log_warn(
+                            sdl3::log::Category::Input,
+                            "mouse_down buffer is full, dropping event",
+                        );
+                        continue;
+                    }
+
+                    self.mouse_down[mouse_down] = Mouse {
+                        x,
+                        y,
+                        clicks,
+                        btn: mouse_btn,
+                    };
+                    mouse_down += 1;
+                }
                 Event::KeyUp {
                     keycode, keymod, ..
                 } => {
-                    if up >= self.key_up.len() {
+                    if key_up >= self.key_up.len() {
                         sdl3::log::log_warn(
                             sdl3::log::Category::Input,
                             "key_up buffer is full, dropping event",
@@ -73,16 +151,16 @@ impl Events {
                         continue;
                     };
 
-                    self.key_up[up] = Key {
+                    self.key_up[key_up] = Key {
                         key,
                         key_mod: keymod,
                     };
-                    up += 1;
+                    key_up += 1;
                 }
                 Event::KeyDown {
                     keycode, keymod, ..
                 } => {
-                    if down >= self.key_down.len() {
+                    if key_down >= self.key_down.len() {
                         sdl3::log::log_warn(
                             sdl3::log::Category::Input,
                             "key_down buffer is full, dropping event",
@@ -94,23 +172,37 @@ impl Events {
                         continue;
                     };
 
-                    self.key_down[down] = Key {
+                    self.key_down[key_down] = Key {
                         key,
                         key_mod: keymod,
                     };
-                    down += 1;
+                    key_down += 1;
                 }
                 _ => continue,
             }
         }
 
-        // Use Key::default as sentinel
-        if up < self.key_up.len() {
-            self.key_up[up] = Key::default()
+        // Use defaults as sentinel
+        if mouse_up < self.mouse_up.len() {
+            self.mouse_up[mouse_up] = Mouse::default()
         }
-        if down < self.key_down.len() {
-            self.key_down[down] = Key::default()
+        if mouse_down < self.mouse_down.len() {
+            self.mouse_down[mouse_down] = Mouse::default()
         }
+        if key_up < self.key_up.len() {
+            self.key_up[key_up] = Key::default()
+        }
+        if key_down < self.key_down.len() {
+            self.key_down[key_down] = Key::default()
+        }
+    }
+
+    pub fn mouse_up(&self, btn: MouseButton) -> Option<&Mouse> {
+        self.mouse_up.iter().find(|m| m.btn == btn)
+    }
+
+    pub fn mouse_down(&self, btn: MouseButton) -> Option<&Mouse> {
+        self.mouse_down.iter().find(|m| m.btn == btn)
     }
 
     pub fn key_down(&self, key: Keycode) -> Option<&Key> {

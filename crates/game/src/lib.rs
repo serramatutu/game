@@ -40,6 +40,16 @@ pub fn update_and_render(params: UpdateAndRenderParams) -> Result<bool> {
         state.pos -= params.screen_w;
     }
 
+    if let Some(mouse) = params.events.mouse_up(sdl3::mouse::MouseButton::Left) {
+        params.canvas.set_draw_color(Color::RGB(0, 255, 255));
+        params.canvas.draw_rect(FRect {
+            x: mouse.x,
+            y: mouse.y,
+            w: 50.0,
+            h: 50.0,
+        })?;
+    }
+
     params.canvas.set_draw_color(Color::RGB(0, 255, 0));
     params.canvas.draw_rect(FRect {
         x: state.pos as f32,
