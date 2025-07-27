@@ -1,5 +1,6 @@
 //! Utilities to handle events
 
+use math::ScreenPoint;
 use sdl3::{
     EventPump,
     event::Event,
@@ -25,8 +26,7 @@ impl Default for Key {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Mouse {
     pub btn: MouseButton,
-    pub x: f32,
-    pub y: f32,
+    pub pos: ScreenPoint,
     pub clicks: u8,
 }
 
@@ -34,8 +34,7 @@ impl Default for Mouse {
     fn default() -> Self {
         Self {
             btn: MouseButton::Unknown,
-            x: 0.0,
-            y: 0.0,
+            pos: ScreenPoint::default(),
             clicks: 0,
         }
     }
@@ -105,8 +104,7 @@ impl Events {
                     }
 
                     self.mouse_up[mouse_up] = Mouse {
-                        x,
-                        y,
+                        pos: ScreenPoint::new(x, y),
                         btn: mouse_btn,
                         clicks: 0,
                     };
@@ -128,8 +126,7 @@ impl Events {
                     }
 
                     self.mouse_down[mouse_down] = Mouse {
-                        x,
-                        y,
+                        pos: ScreenPoint::new(x, y),
                         clicks,
                         btn: mouse_btn,
                     };

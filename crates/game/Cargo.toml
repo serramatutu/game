@@ -8,6 +8,7 @@ crate-type = ["dylib"]
 
 [dependencies]
 engine = { path = "../engine" }
+math = { path = "../math" }
 
 allocator-api2 = { workspace = true }
 anyhow = { workspace = true }

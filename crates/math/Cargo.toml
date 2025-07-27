@@ -1,0 +1,10 @@
+[package]
+name = "math"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+euclid = { workspace = true }

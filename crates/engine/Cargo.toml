@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+math = { path = "../math" }
 sdl3 = { workspace = true }
 allocator-api2 = { workspace = true }

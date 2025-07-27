@@ -1,13 +1,15 @@
 [workspace]
 resolver = "3"
 members = [ 
-    "crates/binary", "crates/game", "crates/engine",
+    "crates/binary", "crates/game", "crates/engine", "crates/math",
 ]
 
 [workspace.dependencies]
 sdl3 = { version = "0.14", features = ["build-from-source"] }
 allocator-api2 = "0.3.0"
 anyhow = "1"
+euclid = "0.22"
 thiserror = "2" 
 libloading = "0.8" 
+num-traits = "0.2"
 

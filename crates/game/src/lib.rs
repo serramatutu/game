@@ -1,12 +1,16 @@
+mod zorb;
+
 use std::ptr::NonNull;
 
 use allocator_api2::alloc::{Allocator, Layout};
 use anyhow::Result;
 use engine::hooks::{DropParams, InitParams, UpdateAndRenderParams};
-use sdl3::{pixels::Color, render::FRect};
+use math::WorldPoint;
+
+use zorb::Zorb;
 
 struct State {
-    pos: u16,
+    zorb: Zorb,
 }
 
 #[unsafe(no_mangle)]
@@ -15,7 +19,8 @@ pub fn init(params: InitParams) -> Result<NonNull<[u8]>> {
     let ptr = params.allocator.allocate(layout)?;
 
     let state = unsafe { ptr.cast::<State>().as_mut() };
-    state.pos = 0;
+    state.zorb.pos = WorldPoint::new(400.0, 400.0);
+    state.zorb.target = WorldPoint::new(400.0, 400.0);
 
     Ok(ptr)
 }
@@ -31,31 +36,15 @@ pub fn drop(params: DropParams) {
 }
 
 #[unsafe(no_mangle)]
-pub fn update_and_render(params: UpdateAndRenderParams) -> Result<bool> {
+pub fn update_and_render(mut params: UpdateAndRenderParams) -> Result<bool> {
     let state = unsafe { params.state.cast::<State>().as_mut() };
 
-    state.pos += (500 * params.delta_ms / 1000) as u16;
-
-    while state.pos > params.screen_w {
-        state.pos -= params.screen_w;
-    }
-
     if let Some(mouse) = params.events.mouse_up(sdl3::mouse::MouseButton::Left) {
-        params.canvas.set_draw_color(Color::RGB(0, 255, 255));
-        params.canvas.draw_rect(FRect {
-            x: mouse.x,
-            y: mouse.y,
-            w: 50.0,
-            h: 50.0,
-        })?;
+        // TODO: screen to world
+        state.zorb.target = WorldPoint::new(mouse.pos.x, mouse.pos.y);
     }
 
-    params.canvas.set_draw_color(Color::RGB(0, 255, 0));
-    params.canvas.draw_rect(FRect {
-        x: state.pos as f32,
-        y: 10.0,
-        w: 50.0,
-        h: 50.0,
-    })?;
+    state.zorb.update_and_render(&mut params)?;
+
     Ok(true)
 }
