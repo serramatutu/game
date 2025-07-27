@@ -1,8 +1,13 @@
+//! Global hooks which are used as the interface between the engine and the
+//! engine and the game shared lib.
+
 use std::ptr::NonNull;
 
 use allocator_api2::alloc::Global as GlobalAllocator;
 
-use sdl3::{EventPump, render::WindowCanvas};
+use sdl3::render::WindowCanvas;
+
+use crate::events::Events;
 
 pub struct InitParams {
     pub allocator: GlobalAllocator,
@@ -16,7 +21,7 @@ pub struct DropParams {
 pub struct UpdateAndRenderParams<'a> {
     pub allocator: GlobalAllocator,
 
-    pub event_pump: &'a mut EventPump,
+    pub events: &'a mut Events,
     pub canvas: &'a mut WindowCanvas,
 
     pub now_ms: u64,

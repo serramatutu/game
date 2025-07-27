@@ -20,9 +20,9 @@ version = "0.1.0"
 dependencies = [
  "allocator-api2",
  "anyhow",
+ "engine",
  "libloading",
  "sdl3",
- "shared",
  "thiserror",
 ]
 
@@ -57,13 +57,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine"
+version = "0.1.0"
+dependencies = [
+ "allocator-api2",
+ "sdl3",
+]
+
+[[package]]
 name = "game"
 version = "0.1.0"
 dependencies = [
  "allocator-api2",
  "anyhow",
+ "engine",
  "sdl3",
- "shared",
 ]
 
 [[package]]
@@ -177,14 +185,6 @@ dependencies = [
  "rpkg-config",
  "sdl3-sys",
  "sdl3-ttf-src",
-]
-
-[[package]]
-name = "shared"
-version = "0.1.0"
-dependencies = [
- "allocator-api2",
- "sdl3",
 ]
 
 [[package]]

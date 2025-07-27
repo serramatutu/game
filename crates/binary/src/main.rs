@@ -1,7 +1,10 @@
 use anyhow::Result;
+use engine::{
+    events::Events,
+    hooks::{DropParams, InitParams, UpdateAndRenderParams},
+};
 use libloading::{Library, Symbol};
 use sdl3::pixels::Color;
-use shared::{DropParams, InitParams, UpdateAndRenderParams};
 use thiserror::Error;
 
 use std::{ptr::NonNull, time::Duration};
@@ -69,7 +72,8 @@ pub fn main() -> Result<()> {
         .build()?;
 
     let mut canvas = window.into_canvas();
-    let mut event_pump = sdl_context.event_pump()?;
+    let event_pump = sdl_context.event_pump()?;
+    let mut events = Events::new(event_pump);
 
     let game_state = game.init(InitParams {
         allocator: GlobalAllocator,
@@ -79,6 +83,13 @@ pub fn main() -> Result<()> {
     let mut prev_now_ms: u64 = 0;
 
     while !exit {
+        events.clear();
+        events.scan();
+
+        if events.key_down(sdl3::keyboard::Keycode::Escape).is_some() {
+            break;
+        }
+
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
 
@@ -89,7 +100,7 @@ pub fn main() -> Result<()> {
         let params = UpdateAndRenderParams {
             allocator: GlobalAllocator,
             canvas: &mut canvas,
-            event_pump: &mut event_pump,
+            events: &mut events,
             now_ms,
             delta_ms,
             screen_w: WINDOW_WIDTH,
@@ -100,6 +111,7 @@ pub fn main() -> Result<()> {
         exit = !game.update_and_render(params)?;
 
         canvas.present();
+
         std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 

@@ -2,8 +2,8 @@ use std::ptr::NonNull;
 
 use allocator_api2::alloc::{Allocator, Layout};
 use anyhow::Result;
-use sdl3::{event::Event, keyboard::Keycode, pixels::Color, render::FRect};
-use shared::{DropParams, InitParams, UpdateAndRenderParams};
+use engine::hooks::{DropParams, InitParams, UpdateAndRenderParams};
+use sdl3::{pixels::Color, render::FRect};
 
 struct State {
     pos: u16,
@@ -33,17 +33,6 @@ pub fn drop(params: DropParams) {
 #[unsafe(no_mangle)]
 pub fn update_and_render(params: UpdateAndRenderParams) -> Result<bool> {
     let state = unsafe { params.state.cast::<State>().as_mut() };
-
-    for event in params.event_pump.poll_iter() {
-        match event {
-            Event::Quit { .. }
-            | Event::KeyDown {
-                keycode: Some(Keycode::Escape),
-                ..
-            } => return Ok(false),
-            _ => {}
-        }
-    }
 
     state.pos += (500 * params.delta_ms / 1000) as u16;
 
