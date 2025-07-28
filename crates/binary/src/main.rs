@@ -1,10 +1,12 @@
 use anyhow::Result;
 use engine::{
+    camera::Camera,
+    coords::ScreenSize,
     events::Events,
     hooks::{DropParams, InitParams, UpdateAndRenderParams},
 };
 use libloading::{Library, Symbol};
-use sdl3::pixels::Color;
+use sdl3::{pixels::Color, render::FRect};
 use thiserror::Error;
 
 use std::{fs, ptr::NonNull, time::Duration};
@@ -13,13 +15,13 @@ use allocator_api2::alloc::Global as GlobalAllocator;
 
 struct Game<'a> {
     #[expect(clippy::type_complexity)]
-    init_fn: Symbol<'a, fn(params: InitParams) -> Result<NonNull<[u8]>>>,
+    init_fn: Symbol<'a, fn(params: &mut InitParams) -> Result<NonNull<[u8]>>>,
     drop_fn: Symbol<'a, fn(params: DropParams)>,
-    update_and_render_fn: Symbol<'a, fn(params: UpdateAndRenderParams) -> Result<bool>>,
+    update_and_render_fn: Symbol<'a, fn(params: &mut UpdateAndRenderParams) -> Result<bool>>,
 }
 
 impl Game<'_> {
-    pub fn init(&self, params: InitParams) -> Result<NonNull<[u8]>> {
+    pub fn init(&self, params: &mut InitParams) -> Result<NonNull<[u8]>> {
         (self.init_fn)(params)
     }
 
@@ -27,7 +29,7 @@ impl Game<'_> {
         (self.drop_fn)(params)
     }
 
-    pub fn update_and_render(&self, params: UpdateAndRenderParams) -> Result<bool> {
+    pub fn update_and_render(&self, params: &mut UpdateAndRenderParams) -> Result<bool> {
         (self.update_and_render_fn)(params)
     }
 }
@@ -89,9 +91,22 @@ pub fn main() -> Result<()> {
     let event_pump = sdl_context.event_pump()?;
     let mut events = Events::new(event_pump);
 
-    let game_state = game.as_ref().unwrap().init(InitParams {
+    let mut camera = Camera::default();
+    let mut init_params = InitParams {
         allocator: GlobalAllocator,
-    })?;
+        camera: &mut camera,
+    };
+    let game_state = game.as_ref().unwrap().init(&mut init_params)?;
+
+    let tex_dimensions =
+        camera.get_texture_size(ScreenSize::new(WINDOW_WIDTH as f32, WINDOW_HEIGHT as f32));
+    let tc = canvas.texture_creator();
+    let mut render_tex = tc.create_texture(
+        None,
+        sdl3::render::TextureAccess::Target,
+        tex_dimensions.width as u32,
+        tex_dimensions.height as u32,
+    )?;
 
     let mut exit = false;
     let mut prev_now_ms: u64 = 0;
@@ -116,25 +131,40 @@ pub fn main() -> Result<()> {
             break;
         }
 
-        canvas.set_draw_color(Color::RGB(0, 0, 0));
-        canvas.clear();
-
         let now_ms = sdl3::timer::ticks();
         let delta_ms = now_ms - prev_now_ms;
         prev_now_ms = now_ms;
 
-        let params = UpdateAndRenderParams {
-            allocator: GlobalAllocator,
-            canvas: &mut canvas,
-            events: &mut events,
-            now_ms,
-            delta_ms,
-            screen_w: WINDOW_WIDTH,
-            screen_h: WINDOW_HEIGHT,
-            state: game_state,
-        };
+        let mut res = Ok(false);
+        canvas.with_texture_canvas(&mut render_tex, |tex_canvas| {
+            tex_canvas.set_draw_color(Color::BLACK);
+            tex_canvas.clear();
 
-        exit = !game.as_ref().unwrap().update_and_render(params)?;
+            let mut params = UpdateAndRenderParams {
+                allocator: GlobalAllocator,
+                canvas: tex_canvas,
+                events: &mut events,
+                camera: &mut camera,
+                now_ms,
+                delta_ms,
+                screen_w: WINDOW_WIDTH,
+                screen_h: WINDOW_HEIGHT,
+                state: game_state,
+            };
+            res = game.as_ref().unwrap().update_and_render(&mut params);
+        })?;
+        exit = !res?;
+
+        canvas.copy(
+            &render_tex,
+            None,
+            Some(FRect {
+                x: 0.0,
+                y: 0.0,
+                w: WINDOW_WIDTH as f32,
+                h: WINDOW_HEIGHT as f32,
+            }),
+        )?;
 
         canvas.present();
 

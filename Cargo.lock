@@ -67,7 +67,7 @@ name = "engine"
 version = "0.1.0"
 dependencies = [
  "allocator-api2",
- "math",
+ "euclid",
  "sdl3",
 ]
 
@@ -87,7 +87,6 @@ dependencies = [
  "allocator-api2",
  "anyhow",
  "engine",
- "math",
  "sdl3",
 ]
 
@@ -111,13 +110,6 @@ checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
  "windows-targets",
-]
-
-[[package]]
-name = "math"
-version = "0.1.0"
-dependencies = [
- "euclid",
 ]
 
 [[package]]

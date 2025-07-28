@@ -1,12 +1,13 @@
 //! Utilities to handle events
 
-use math::ScreenPoint;
 use sdl3::{
     EventPump,
     event::Event,
     keyboard::{Keycode, Mod},
     mouse::MouseButton,
 };
+
+use crate::coords::ScreenPoint;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Key {

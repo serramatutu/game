@@ -1,6 +1,6 @@
 use anyhow::Result;
+use engine::coords::WorldPoint;
 use engine::hooks::UpdateAndRenderParams;
-use math::WorldPoint;
 use sdl3::pixels::Color;
 
 const SPEED_S: f32 = 5.0;
