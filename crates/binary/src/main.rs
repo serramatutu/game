@@ -1,12 +1,11 @@
 use anyhow::Result;
 use engine::{
     camera::Camera,
-    coords::ScreenSize,
     events::Events,
     hooks::{DropParams, InitParams, UpdateAndRenderParams},
 };
 use libloading::{Library, Symbol};
-use sdl3::{pixels::Color, render::FRect};
+use sdl3::pixels::Color;
 use thiserror::Error;
 
 use std::{fs, ptr::NonNull, time::Duration};
@@ -98,14 +97,12 @@ pub fn main() -> Result<()> {
     };
     let game_state = game.as_ref().unwrap().init(&mut init_params)?;
 
-    let tex_dimensions =
-        camera.get_texture_size(ScreenSize::new(WINDOW_WIDTH as f32, WINDOW_HEIGHT as f32));
     let tc = canvas.texture_creator();
     let mut render_tex = tc.create_texture(
         None,
         sdl3::render::TextureAccess::Target,
-        tex_dimensions.width as u32,
-        tex_dimensions.height as u32,
+        WINDOW_WIDTH as u32,
+        WINDOW_HEIGHT as u32,
     )?;
 
     let mut exit = false;
@@ -155,16 +152,7 @@ pub fn main() -> Result<()> {
         })?;
         exit = !res?;
 
-        canvas.copy(
-            &render_tex,
-            None,
-            Some(FRect {
-                x: 0.0,
-                y: 0.0,
-                w: WINDOW_WIDTH as f32,
-                h: WINDOW_HEIGHT as f32,
-            }),
-        )?;
+        canvas.copy(&render_tex, None, None)?;
 
         canvas.present();
 

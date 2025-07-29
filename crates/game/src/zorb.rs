@@ -1,5 +1,6 @@
 use anyhow::Result;
-use engine::coords::WorldPoint;
+use engine::coords::convert::screen_rect_to_sdl;
+use engine::coords::{WorldPoint, WorldRect, WorldSize};
 use engine::hooks::UpdateAndRenderParams;
 use sdl3::pixels::Color;
 
@@ -20,14 +21,11 @@ impl Zorb {
             self.pos += movement;
         }
 
-        // TODO: world space to screen space
         params.canvas.set_draw_color(Color::RGB(255, 0, 0));
-        params.canvas.draw_rect(sdl3::render::FRect {
-            x: self.pos.x,
-            y: self.pos.y,
-            w: 50.0,
-            h: 50.0,
-        })?;
+
+        let world_rect = WorldRect::new(self.pos, WorldSize::new(50.0, 50.0));
+        let screen_box = params.camera.world_to_screen_rect(&world_rect);
+        params.canvas.fill_rect(screen_rect_to_sdl(&screen_box))?;
 
         Ok(())
     }
