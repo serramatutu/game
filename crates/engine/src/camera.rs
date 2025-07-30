@@ -22,26 +22,40 @@ impl Camera {
         self.max_zoom = max_zoom;
     }
 
-    /// Change the zoom by a delta, clamping it between the max and min allowed zoom
-    pub fn change_zoom(&mut self, delta: f32) {
-        self.zoom = math::clamp(self.zoom + delta, self.min_zoom, self.max_zoom);
-    }
-
-    /// Set the zoom to a value, clamping it between the max and min allowed zoom
+    /// Set the zoom around the top left corner to a value, clamping it between the max and min allowed zoom
     pub fn set_zoom(&mut self, new_zoom: f32) {
         self.zoom = math::clamp(new_zoom, self.min_zoom, self.max_zoom);
+    }
+
+    /// Change the zoom around the top left corner by a delta, clamping it between the max and min allowed zoom.
+    pub fn change_zoom(&mut self, delta: f32) {
+        self.set_zoom(self.zoom + delta);
+    }
+
+    /// Change the zoom around the given point by a delta, clamping it between the max and min allowed zoom.
+    pub fn change_zoom_around(&mut self, delta: f32, point: ScreenPoint) {
+        let wp_before = self.screen_to_world_point(&point);
+        self.change_zoom(delta);
+        let wp_after = self.screen_to_world_point(&point);
+        self.pos += wp_before - wp_after;
     }
 
     /// Convert a point in the world to a point in the screen
     pub fn world_to_screen_point(&self, world: &WorldPoint) -> ScreenPoint {
         // TODO: zoom
-        ScreenPoint::new(world.x - self.pos.x, world.y - self.pos.y)
+        ScreenPoint::new(
+            (world.x - self.pos.x) * self.zoom,
+            (world.y - self.pos.y) * self.zoom,
+        )
     }
 
     /// Convert a point in the screen to a point in the world
     pub fn screen_to_world_point(&self, screen: &ScreenPoint) -> WorldPoint {
         // TODO: zoom
-        WorldPoint::new(screen.x + self.pos.x, screen.y + self.pos.y)
+        WorldPoint::new(
+            screen.x / self.zoom + self.pos.x,
+            screen.y / self.zoom + self.pos.y,
+        )
     }
 
     /// Convert a size in the world to a point in the screen

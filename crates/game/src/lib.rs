@@ -61,14 +61,15 @@ pub fn update_and_render(params: &mut UpdateAndRenderParams) -> Result<bool> {
         params.camera.pos.x += 300.0 * params.delta_ms as f32 / 1000.0;
     }
     if params.events.key_down(sdl3::keyboard::Keycode::Z).is_some() {
-        params
-            .camera
-            .change_zoom(1.0 * params.delta_ms as f32 / 1000.0);
+        params.camera.change_zoom_around(
+            1.0 * params.delta_ms as f32 / 1000.0,
+            params.events.mouse_pos,
+        );
     }
     if params.events.key_down(sdl3::keyboard::Keycode::X).is_some() {
         params
             .camera
-            .change_zoom(-(params.delta_ms as f32) / 1000.0);
+            .change_zoom_around(-(params.delta_ms as f32) / 1000.0, params.events.mouse_pos);
     }
 
     params.canvas.set_draw_color(Color::YELLOW);

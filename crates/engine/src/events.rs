@@ -43,6 +43,7 @@ impl Default for Mouse {
 
 pub struct Events {
     pump: EventPump,
+    pub mouse_pos: ScreenPoint,
     mouse_up: [Mouse; 8],
     mouse_down: [Mouse; 8],
     key_up: [Key; 64],
@@ -53,6 +54,7 @@ impl Events {
     pub fn new(pump: EventPump) -> Events {
         Events {
             pump,
+            mouse_pos: ScreenPoint::default(),
             mouse_up: [Mouse::default(); 8],
             mouse_down: [Mouse::default(); 8],
             key_down: [Key::default(); 64],
@@ -70,6 +72,9 @@ impl Events {
 
     /// Rescan the event pump for the newest events
     pub fn scan(&mut self) {
+        let mouse_state = self.pump.mouse_state();
+        self.mouse_pos = ScreenPoint::new(mouse_state.x(), mouse_state.y());
+
         let mut mouse_up = self
             .mouse_up
             .iter()
