@@ -121,12 +121,7 @@ pub fn main() -> Result<()> {
             game = Some(Game::from_lib(&game_lib)?);
         }
 
-        events.clear();
         events.scan();
-
-        if events.key_down(sdl3::keyboard::Keycode::Escape).is_some() {
-            break;
-        }
 
         let now_ms = sdl3::timer::ticks();
         let delta_ms = now_ms - prev_now_ms;

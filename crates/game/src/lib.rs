@@ -44,29 +44,36 @@ pub fn drop(params: DropParams) {
 pub fn update_and_render(params: &mut UpdateAndRenderParams) -> Result<bool> {
     let state = unsafe { params.state.cast::<State>().as_mut() };
 
-    // handle input
-    if let Some(mouse) = params.events.mouse_up(sdl3::mouse::MouseButton::Left) {
-        state.zorb.target = params.camera.screen_to_world_point(&mouse.pos);
+    if params.events.key(sdl3::keyboard::Keycode::Escape).down {
+        return Ok(false);
     }
-    if params.events.key_down(sdl3::keyboard::Keycode::W).is_some() {
+
+    // handle input
+    let left_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Left);
+    // TODO: just down
+    if left_mouse.down {
+        state.zorb.target = params.camera.screen_to_world_point(&left_mouse.pos);
+    }
+
+    if params.events.key(sdl3::keyboard::Keycode::W).down {
         params.camera.pos.y -= 300.0 * params.delta_ms as f32 / 1000.0;
     }
-    if params.events.key_down(sdl3::keyboard::Keycode::S).is_some() {
+    if params.events.key(sdl3::keyboard::Keycode::S).down {
         params.camera.pos.y += 300.0 * params.delta_ms as f32 / 1000.0;
     }
-    if params.events.key_down(sdl3::keyboard::Keycode::A).is_some() {
+    if params.events.key(sdl3::keyboard::Keycode::A).down {
         params.camera.pos.x -= 300.0 * params.delta_ms as f32 / 1000.0;
     }
-    if params.events.key_down(sdl3::keyboard::Keycode::D).is_some() {
+    if params.events.key(sdl3::keyboard::Keycode::D).down {
         params.camera.pos.x += 300.0 * params.delta_ms as f32 / 1000.0;
     }
-    if params.events.key_down(sdl3::keyboard::Keycode::Z).is_some() {
+    if params.events.key(sdl3::keyboard::Keycode::Z).down {
         params.camera.change_zoom_around(
             1.0 * params.delta_ms as f32 / 1000.0,
             params.events.mouse_pos,
         );
     }
-    if params.events.key_down(sdl3::keyboard::Keycode::X).is_some() {
+    if params.events.key(sdl3::keyboard::Keycode::X).down {
         params
             .camera
             .change_zoom_around(-(params.delta_ms as f32) / 1000.0, params.events.mouse_pos);

@@ -5,49 +5,41 @@ use sdl3::{
     event::Event,
     keyboard::{Keycode, Mod},
     mouse::MouseButton,
+    sys::scancode::SDL_Scancode,
 };
 
 use crate::coords::ScreenPoint;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Key {
-    pub key: Keycode,
-    pub key_mod: Mod,
+pub struct KeyStatus {
+    pub down: bool,
+    pub since: u64,
+    pub mods: Mod,
 }
 
-impl Default for Key {
+impl Default for KeyStatus {
     fn default() -> Self {
         Self {
-            key: Keycode::Unknown,
-            key_mod: Mod::empty(),
+            down: false,
+            since: 0,
+            mods: Mod::empty(),
         }
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Mouse {
-    pub btn: MouseButton,
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct MouseBtnStatus {
+    pub down: bool,
     pub pos: ScreenPoint,
+    pub since: u64,
     pub clicks: u8,
-}
-
-impl Default for Mouse {
-    fn default() -> Self {
-        Self {
-            btn: MouseButton::Unknown,
-            pos: ScreenPoint::default(),
-            clicks: 0,
-        }
-    }
 }
 
 pub struct Events {
     pump: EventPump,
     pub mouse_pos: ScreenPoint,
-    mouse_up: [Mouse; 8],
-    mouse_down: [Mouse; 8],
-    key_up: [Key; 64],
-    key_down: [Key; 64],
+    mouse_btns: [MouseBtnStatus; 8],
+    keys: [KeyStatus; SDL_Scancode::COUNT.0 as usize],
 }
 
 impl Events {
@@ -55,164 +47,72 @@ impl Events {
         Events {
             pump,
             mouse_pos: ScreenPoint::default(),
-            mouse_up: [Mouse::default(); 8],
-            mouse_down: [Mouse::default(); 8],
-            key_down: [Key::default(); 64],
-            key_up: [Key::default(); 64],
+            mouse_btns: [MouseBtnStatus::default(); 8],
+            keys: [KeyStatus::default(); SDL_Scancode::COUNT.0 as usize],
         }
-    }
-
-    // Flush all current events
-    pub fn clear(&mut self) {
-        self.mouse_up[0] = Mouse::default();
-        self.mouse_down[0] = Mouse::default();
-        self.key_up[0] = Key::default();
-        self.key_down[0] = Key::default();
     }
 
     /// Rescan the event pump for the newest events
     pub fn scan(&mut self) {
+        let now = sdl3::timer::ticks();
+
         let mouse_state = self.pump.mouse_state();
         self.mouse_pos = ScreenPoint::new(mouse_state.x(), mouse_state.y());
-
-        let mut mouse_up = self
-            .mouse_up
-            .iter()
-            .position(|k| k == &Mouse::default())
-            .unwrap_or(self.mouse_up.len());
-        let mut mouse_down = self
-            .mouse_down
-            .iter()
-            .position(|k| k == &Mouse::default())
-            .unwrap_or(self.mouse_down.len());
-        let mut key_up = self
-            .key_up
-            .iter()
-            .position(|k| k == &Key::default())
-            .unwrap_or(self.key_up.len());
-        let mut key_down = self
-            .key_down
-            .iter()
-            .position(|k| k == &Key::default())
-            .unwrap_or(self.key_down.len());
 
         for event in self.pump.poll_iter() {
             match event {
                 Event::MouseButtonUp {
                     x, y, mouse_btn, ..
                 } => {
-                    if mouse_up >= self.mouse_up.len() {
-                        sdl3::log::log_warn(
-                            sdl3::log::Category::Input,
-                            "mouse_up buffer is full, dropping event",
-                        );
-                        continue;
-                    }
-
-                    self.mouse_up[mouse_up] = Mouse {
-                        pos: ScreenPoint::new(x, y),
-                        btn: mouse_btn,
-                        clicks: 0,
-                    };
-                    mouse_up += 1;
+                    let idx = mouse_btn as usize;
+                    self.mouse_btns[idx].down = false;
+                    self.mouse_btns[idx].since = now;
+                    self.mouse_btns[idx].pos = ScreenPoint::new(x, y);
                 }
                 Event::MouseButtonDown {
-                    x,
-                    y,
-                    mouse_btn,
-                    clicks,
-                    ..
+                    x, y, mouse_btn, ..
                 } => {
-                    if mouse_down >= self.mouse_down.len() {
-                        sdl3::log::log_warn(
-                            sdl3::log::Category::Input,
-                            "mouse_down buffer is full, dropping event",
-                        );
-                        continue;
-                    }
-
-                    self.mouse_down[mouse_down] = Mouse {
-                        pos: ScreenPoint::new(x, y),
-                        clicks,
-                        btn: mouse_btn,
-                    };
-                    mouse_down += 1;
+                    let idx = mouse_btn as usize;
+                    self.mouse_btns[idx].down = true;
+                    self.mouse_btns[idx].since = now;
+                    self.mouse_btns[idx].pos = ScreenPoint::new(x, y);
                 }
                 Event::KeyUp {
                     keycode, keymod, ..
                 } => {
-                    if key_up >= self.key_up.len() {
-                        sdl3::log::log_warn(
-                            sdl3::log::Category::Input,
-                            "key_up buffer is full, dropping event",
-                        );
-                        continue;
-                    }
-
                     let Some(key) = keycode else {
                         sdl3::log::log_warn(sdl3::log::Category::Input, "received unknown key");
                         continue;
                     };
 
-                    self.key_up[key_up] = Key {
-                        key,
-                        key_mod: keymod,
-                    };
-                    key_up += 1;
+                    let idx = key as usize;
+                    self.keys[idx].down = false;
+                    self.keys[idx].since = now;
+                    self.keys[idx].mods = keymod;
                 }
                 Event::KeyDown {
                     keycode, keymod, ..
                 } => {
-                    if key_down >= self.key_down.len() {
-                        sdl3::log::log_warn(
-                            sdl3::log::Category::Input,
-                            "key_down buffer is full, dropping event",
-                        );
-                        continue;
-                    }
                     let Some(key) = keycode else {
                         sdl3::log::log_warn(sdl3::log::Category::Input, "received unknown key");
                         continue;
                     };
 
-                    self.key_down[key_down] = Key {
-                        key,
-                        key_mod: keymod,
-                    };
-                    key_down += 1;
+                    let idx = key as usize;
+                    self.keys[idx].down = true;
+                    self.keys[idx].since = now;
+                    self.keys[idx].mods = keymod;
                 }
                 _ => continue,
             }
         }
-
-        // Use defaults as sentinel
-        if mouse_up < self.mouse_up.len() {
-            self.mouse_up[mouse_up] = Mouse::default()
-        }
-        if mouse_down < self.mouse_down.len() {
-            self.mouse_down[mouse_down] = Mouse::default()
-        }
-        if key_up < self.key_up.len() {
-            self.key_up[key_up] = Key::default()
-        }
-        if key_down < self.key_down.len() {
-            self.key_down[key_down] = Key::default()
-        }
     }
 
-    pub fn mouse_up(&self, btn: MouseButton) -> Option<&Mouse> {
-        self.mouse_up.iter().find(|m| m.btn == btn)
+    pub fn mouse_btn(&self, btn: MouseButton) -> &MouseBtnStatus {
+        &self.mouse_btns[btn as usize]
     }
 
-    pub fn mouse_down(&self, btn: MouseButton) -> Option<&Mouse> {
-        self.mouse_down.iter().find(|m| m.btn == btn)
-    }
-
-    pub fn key_down(&self, key: Keycode) -> Option<&Key> {
-        self.key_down.iter().find(|k| k.key == key)
-    }
-
-    pub fn key_up(&self, key: Keycode) -> Option<&Key> {
-        self.key_up.iter().find(|k| k.key == key)
+    pub fn key(&self, key: Keycode) -> &KeyStatus {
+        &self.keys[key as usize]
     }
 }
