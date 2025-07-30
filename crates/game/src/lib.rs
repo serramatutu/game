@@ -44,7 +44,7 @@ pub fn drop(params: DropParams) {
 pub fn update_and_render(params: &mut UpdateAndRenderParams) -> Result<bool> {
     let state = unsafe { params.state.cast::<State>().as_mut() };
 
-    if params.events.key(sdl3::keyboard::Keycode::Escape).down {
+    if params.events.quit() || params.events.key(sdl3::keyboard::Keycode::Escape).down {
         return Ok(false);
     }
 

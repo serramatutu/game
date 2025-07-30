@@ -32,12 +32,12 @@ pub struct MouseBtnStatus {
     pub down: bool,
     pub pos: ScreenPoint,
     pub since: u64,
-    pub clicks: u8,
 }
 
 pub struct Events {
     pump: EventPump,
     pub mouse_pos: ScreenPoint,
+    quit_timestamp: u64,
     mouse_btns: [MouseBtnStatus; 8],
     keys: [KeyStatus; SDL_Scancode::COUNT.0 as usize],
 }
@@ -46,6 +46,7 @@ impl Events {
     pub fn new(pump: EventPump) -> Events {
         Events {
             pump,
+            quit_timestamp: 0,
             mouse_pos: ScreenPoint::default(),
             mouse_btns: [MouseBtnStatus::default(); 8],
             keys: [KeyStatus::default(); SDL_Scancode::COUNT.0 as usize],
@@ -61,6 +62,9 @@ impl Events {
 
         for event in self.pump.poll_iter() {
             match event {
+                Event::Quit { timestamp } => {
+                    self.quit_timestamp = timestamp;
+                }
                 Event::MouseButtonUp {
                     x, y, mouse_btn, ..
                 } => {
@@ -114,5 +118,9 @@ impl Events {
 
     pub fn key(&self, key: Keycode) -> &KeyStatus {
         &self.keys[key as usize]
+    }
+
+    pub fn quit(&self) -> bool {
+        self.quit_timestamp != 0
     }
 }
