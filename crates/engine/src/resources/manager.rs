@@ -57,7 +57,7 @@ where
     }
 
     /// Get a resource that was already preloaded otherwise panic
-    pub fn get(&'this mut self, id: Id<'this, Res>) -> &'this Res {
+    pub fn get(&'this self, id: Id<'this, Res>) -> &'this Res {
         self.cache
             .get(&id)
             .unwrap_or_else(|| panic!("Resource ID '{id:?}' was not loaded"))
