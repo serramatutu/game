@@ -1,3 +1,4 @@
+mod consts;
 mod global_state;
 mod zorb;
 
@@ -29,7 +30,8 @@ pub fn init<'gamestatic>(
     params.camera.init(0.5, 3.0, WorldPoint::origin());
     params.camera.set_zoom(0.5);
 
-    state.resource_ids.zorb_face = params.resources.load_sprite_map("zorb/face")?;
+    // state.resource_ids.zorb_face = params.resources.load_sprite_map("zorb/face")?;
+    state.resource_ids.zorb_body = params.resources.load_sprite_map("zorb/body")?;
 
     state.zorb.pos = WorldPoint::new(400.0, 400.0);
     state.zorb.target = WorldPoint::new(400.0, 400.0);

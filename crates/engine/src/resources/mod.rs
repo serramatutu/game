@@ -10,16 +10,16 @@ pub mod manager;
 pub mod sprite_map;
 
 /// Holds all resource managers
-pub struct Resources<'tc> {
+pub struct Resources<'res> {
     pub root: PathBuf,
-    pub sprites: sprite_map::SpriteMapManager<'tc, WindowContext>,
+    pub sprites: sprite_map::SpriteMapManager<'res, WindowContext>,
 }
 
-impl<'tc> Resources<'tc> {
+impl<'res> Resources<'res> {
     pub fn load_sprite_map(
-        &'tc mut self,
+        &'res mut self,
         name: &str,
-    ) -> Result<Id<'tc, SpriteMap<'tc>>, ResourceError> {
+    ) -> Result<Id<'res, SpriteMap<'res>>, ResourceError> {
         let full_name = self.root.join(name);
         self.sprites.load(&full_name)
     }

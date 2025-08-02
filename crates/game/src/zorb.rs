@@ -1,8 +1,9 @@
 use anyhow::Result;
 use engine::coords::convert::screen_rect_to_sdl;
-use engine::coords::{WorldPoint, WorldRect, WorldSize};
+use engine::coords::{WorldPoint, WorldRect};
 use sdl3::pixels::Color;
 
+use crate::consts::PIXEL_TO_WORLD;
 use crate::global_state::Ctx;
 
 const SPEED_S: f32 = 5.0;
@@ -25,12 +26,17 @@ impl Zorb {
 
         ctx.canvas.set_draw_color(Color::RGB(255, 0, 0));
 
-        let world_rect = WorldRect::new(self.pos, WorldSize::new(50.0, 50.0));
+        let frame = 0;
+        let tex = ctx.resources.sprites.get(ctx.resource_ids.zorb_body);
+        let world_size = tex.get_world_size(PIXEL_TO_WORLD, frame).expect("TODO");
+        let world_rect = WorldRect::new(self.pos, world_size);
         let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
 
-        let tex = ctx.resources.sprites.get(ctx.resource_ids.zorb_face);
-        ctx.canvas
-            .copy(&tex.tex, None, Some(screen_rect_to_sdl(&screen_box)))?;
+        ctx.canvas.copy(
+            &tex.tex,
+            tex.get_frame_rect(frame),
+            Some(screen_rect_to_sdl(&screen_box)),
+        )?;
 
         Ok(())
     }

@@ -10,7 +10,8 @@ use crate::Zorb;
 /// The map of known resource IDs
 #[derive(Clone)]
 pub(crate) struct ResourceIds<'res> {
-    pub zorb_face: Id<'res, SpriteMap<'res>>,
+    // pub zorb_face: Id<'res, SpriteMap<'res>>,
+    pub zorb_body: Id<'res, SpriteMap<'res>>,
 }
 
 /// The state that gets persisted between calls of `update_and_render`
