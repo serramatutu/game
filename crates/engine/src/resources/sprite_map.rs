@@ -64,6 +64,11 @@ pub struct SpriteMap<'sdlcanvas> {
 }
 
 impl<'sdlcanvas> SpriteMap<'sdlcanvas> {
+    /// The total number of frames on this sprite map
+    pub fn num_frames(&self) -> usize {
+        self.metadata.frames.len()
+    }
+
     /// Get the rect in the sprite for a given frame
     pub fn get_frame_rect(&self, index: usize) -> Option<FRect> {
         let frame = self.metadata.frames.get_index(index);

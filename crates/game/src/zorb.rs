@@ -1,4 +1,5 @@
 use anyhow::Result;
+use engine::animation::Animation;
 use engine::coords::convert::screen_rect_to_sdl;
 use engine::coords::{WorldPoint, WorldRect};
 use sdl3::pixels::Color;
@@ -10,6 +11,7 @@ const SPEED_S: f32 = 5.0;
 
 #[derive(Clone)]
 pub(crate) struct Zorb {
+    pub anim: Animation<usize>,
     pub pos: WorldPoint,
     pub target: WorldPoint,
 }
@@ -26,7 +28,11 @@ impl Zorb {
 
         ctx.canvas.set_draw_color(Color::RGB(255, 0, 0));
 
-        let frame = 0;
+        let frame = match self.anim.update(ctx.now_ms) {
+            Some(f) => *f,
+            None => *self.anim.start(ctx.now_ms),
+        };
+
         let tex = ctx.resources.sprites.get(ctx.resource_ids.zorb_body);
         let world_size = tex.get_world_size(PIXEL_TO_WORLD, frame).expect("TODO");
         let world_rect = WorldRect::new(self.pos, world_size);
