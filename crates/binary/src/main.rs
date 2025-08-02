@@ -3,12 +3,16 @@ use engine::{
     camera::Camera,
     events::Events,
     hooks::{DropParams, InitParams, UpdateAndRenderParams},
+    resources::{
+        Resources,
+        sprite_map::{SpriteMapLoader, SpriteMapManager},
+    },
 };
 use libloading::{Library, Symbol};
 use sdl3::pixels::Color;
 use thiserror::Error;
 
-use std::{fs, ptr::NonNull, time::Duration};
+use std::{fs, path::PathBuf, ptr::NonNull, time::Duration};
 
 use allocator_api2::alloc::Global as GlobalAllocator;
 
@@ -91,11 +95,6 @@ pub fn main() -> Result<()> {
     let mut events = Events::new(event_pump);
 
     let mut camera = Camera::default();
-    let mut init_params = InitParams {
-        allocator: GlobalAllocator,
-        camera: &mut camera,
-    };
-    let game_state = game.as_ref().unwrap().init(&mut init_params)?;
 
     let tc = canvas.texture_creator();
     let mut render_tex = tc.create_texture(
@@ -104,6 +103,20 @@ pub fn main() -> Result<()> {
         WINDOW_WIDTH as u32,
         WINDOW_HEIGHT as u32,
     )?;
+
+    let tc2 = canvas.texture_creator();
+
+    let mut resources = Resources {
+        root: PathBuf::from("."),
+        sprites: SpriteMapManager::new(SpriteMapLoader::new(tc2)),
+    };
+    let mut init_params = InitParams {
+        allocator: GlobalAllocator,
+        camera: &mut camera,
+        resources: &mut resources,
+    };
+
+    let game_state = game.as_ref().unwrap().init(&mut init_params)?;
 
     let mut exit = false;
     let mut prev_now_ms: u64 = 0;
@@ -137,6 +150,7 @@ pub fn main() -> Result<()> {
                 canvas: tex_canvas,
                 events: &mut events,
                 camera: &mut camera,
+                resources: &mut resources,
                 now_ms,
                 delta_ms,
                 screen_w: WINDOW_WIDTH,

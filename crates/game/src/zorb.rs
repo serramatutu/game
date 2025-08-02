@@ -4,6 +4,8 @@ use engine::coords::{WorldPoint, WorldRect, WorldSize};
 use engine::hooks::UpdateAndRenderParams;
 use sdl3::pixels::Color;
 
+use crate::LoadedResources;
+
 const SPEED_S: f32 = 5.0;
 
 pub(crate) struct Zorb {
@@ -12,7 +14,11 @@ pub(crate) struct Zorb {
 }
 
 impl Zorb {
-    pub fn update_and_render(&mut self, params: &mut UpdateAndRenderParams) -> Result<()> {
+    pub fn update_and_render<'a>(
+        &mut self,
+        res: &'a LoadedResources,
+        params: &'a mut UpdateAndRenderParams<'a, 'a>,
+    ) -> Result<()> {
         let diff = self.target - self.pos;
         let speed = SPEED_S.min(diff.length());
 
@@ -25,7 +31,11 @@ impl Zorb {
 
         let world_rect = WorldRect::new(self.pos, WorldSize::new(50.0, 50.0));
         let screen_box = params.camera.world_to_screen_rect(&world_rect);
-        params.canvas.fill_rect(screen_rect_to_sdl(&screen_box))?;
+
+        let tex = params.resources.sprites.get(res.zorb_face);
+        params
+            .canvas
+            .copy(&tex.tex, None, Some(screen_rect_to_sdl(&screen_box)))?;
 
         Ok(())
     }

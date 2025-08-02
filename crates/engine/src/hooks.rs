@@ -7,24 +7,33 @@ use allocator_api2::alloc::Global as GlobalAllocator;
 
 use sdl3::render::WindowCanvas;
 
-use crate::{camera::Camera, events::Events};
+use crate::{camera::Camera, events::Events, resources::Resources};
 
-pub struct InitParams<'a> {
+pub struct InitParams<'eng, 'res>
+where
+    'res: 'eng,
+{
     pub allocator: GlobalAllocator,
-    pub camera: &'a mut Camera,
+    pub camera: &'eng mut Camera,
+    pub resources: &'eng mut Resources<'res>,
 }
 
 pub struct DropParams {
     pub allocator: GlobalAllocator,
+    // TODO: resources?
     pub state: NonNull<[u8]>,
 }
 
-pub struct UpdateAndRenderParams<'a> {
+pub struct UpdateAndRenderParams<'eng, 'res>
+where
+    'res: 'eng,
+{
     pub allocator: GlobalAllocator,
 
-    pub events: &'a mut Events,
-    pub canvas: &'a mut WindowCanvas,
-    pub camera: &'a mut Camera,
+    pub events: &'eng mut Events,
+    pub canvas: &'eng mut WindowCanvas,
+    pub camera: &'eng mut Camera,
+    pub resources: &'eng mut Resources<'res>,
 
     pub now_ms: u64,
     pub delta_ms: u64,

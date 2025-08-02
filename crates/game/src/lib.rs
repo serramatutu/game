@@ -1,5 +1,6 @@
 mod zorb;
 
+use std::path::PathBuf;
 use std::ptr::NonNull;
 
 use allocator_api2::alloc::{Allocator, Layout};
@@ -7,22 +8,33 @@ use anyhow::Result;
 use engine::coords::{self, WorldPoint, WorldRect, WorldSize};
 use engine::hooks::{DropParams, InitParams, UpdateAndRenderParams};
 
+use engine::resources::sprite_map::SpriteMap;
+use engine::types::Id;
 use sdl3::pixels::Color;
 use zorb::Zorb;
 
-struct State {
+struct LoadedResources<'res> {
+    zorb_face: Id<'res, SpriteMap<'res>>,
+}
+
+struct State<'res> {
+    res: LoadedResources<'res>,
     zorb: Zorb,
 }
 
 #[unsafe(no_mangle)]
-pub fn init(params: &mut InitParams) -> Result<NonNull<[u8]>> {
+pub fn init<'eng>(params: &'eng mut InitParams<'eng, 'eng>) -> Result<NonNull<[u8]>> {
     let layout = Layout::new::<State>();
     let ptr = params.allocator.allocate(layout)?;
 
     let state = unsafe { ptr.cast::<State>().as_mut() };
 
+    params.resources.root = PathBuf::from("resources/obj");
+
     params.camera.init(0.5, 3.0, WorldPoint::origin());
     params.camera.set_zoom(0.5);
+
+    state.res.zorb_face = params.resources.load_sprite_map("zorb/face")?;
 
     state.zorb.pos = WorldPoint::new(400.0, 400.0);
     state.zorb.target = WorldPoint::new(400.0, 400.0);
@@ -32,6 +44,7 @@ pub fn init(params: &mut InitParams) -> Result<NonNull<[u8]>> {
 
 #[unsafe(no_mangle)]
 pub fn drop(params: DropParams) {
+    // TODO: unload resources
     let layout = Layout::new::<State>();
     unsafe {
         params
@@ -41,7 +54,9 @@ pub fn drop(params: DropParams) {
 }
 
 #[unsafe(no_mangle)]
-pub fn update_and_render(params: &mut UpdateAndRenderParams) -> Result<bool> {
+pub fn update_and_render<'eng>(
+    params: &'eng mut UpdateAndRenderParams<'eng, 'eng>,
+) -> Result<bool> {
     let state = unsafe { params.state.cast::<State>().as_mut() };
 
     if params.events.quit() || params.events.key(sdl3::keyboard::Keycode::Escape).down {
@@ -50,7 +65,6 @@ pub fn update_and_render(params: &mut UpdateAndRenderParams) -> Result<bool> {
 
     // handle input
     let left_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Left);
-    // TODO: just down
     if left_mouse.down {
         state.zorb.target = params.camera.screen_to_world_point(&left_mouse.pos);
     }
@@ -90,7 +104,7 @@ pub fn update_and_render(params: &mut UpdateAndRenderParams) -> Result<bool> {
         ))?;
 
     // updante and render
-    state.zorb.update_and_render(params)?;
+    state.zorb.update_and_render(&state.res, params)?;
 
     Ok(true)
 }
