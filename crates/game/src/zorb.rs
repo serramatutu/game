@@ -1,7 +1,7 @@
 use anyhow::Result;
-use engine::animation::Animation;
+use engine::animation::AnimationCursor;
 use engine::coords::convert::screen_rect_to_sdl;
-use engine::coords::{WorldPoint, WorldRect};
+use engine::coords::{WorldPoint, WorldRect, WorldSize};
 use sdl3::pixels::Color;
 
 use crate::consts::PIXEL_TO_WORLD;
@@ -11,13 +11,16 @@ const SPEED_S: f32 = 5.0;
 
 #[derive(Clone)]
 pub(crate) struct Zorb {
-    pub anim: Animation<usize>,
+    pub anim: AnimationCursor,
     pub pos: WorldPoint,
     pub target: WorldPoint,
 }
 
 impl Zorb {
-    pub fn update_and_render<'a>(&mut self, ctx: &'a mut Ctx<'a, 'a>) -> Result<()> {
+    pub fn update_and_render<'gamestatic>(
+        &mut self,
+        ctx: &'gamestatic mut Ctx<'gamestatic, 'gamestatic>,
+    ) -> Result<()> {
         let diff = self.target - self.pos;
         let speed = SPEED_S.min(diff.length());
 
@@ -28,21 +31,24 @@ impl Zorb {
 
         ctx.canvas.set_draw_color(Color::RGB(255, 0, 0));
 
-        let frame = match self.anim.update(ctx.now_ms) {
-            Some(f) => *f,
-            None => *self.anim.start(ctx.now_ms),
-        };
+        // TODO: get animation from spritesheet
+        let sprite = ctx.resources.sprites.get(ctx.resource_ids.zorb_sprite);
 
-        let tex = ctx.resources.sprites.get(ctx.resource_ids.zorb_body);
-        let world_size = tex.get_world_size(PIXEL_TO_WORLD, frame).expect("TODO");
-        let world_rect = WorldRect::new(self.pos, world_size);
-        let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
+        let anim = sprite.get_animation("body:walk");
+        let layer_cels = anim.update_cursor_loop(&mut self.anim, ctx.now_ms);
+        for cel_i in layer_cels.iter() {
+            let cel = sprite.cels[*cel_i as usize];
 
-        ctx.canvas.copy(
-            &tex.tex,
-            tex.get_frame_rect(frame),
-            Some(screen_rect_to_sdl(&screen_box)),
-        )?;
+            // TODO: proper pixel to world conversion somewhere
+            let world_size = WorldSize::new(cel.w * PIXEL_TO_WORLD, cel.h * PIXEL_TO_WORLD);
+            let world_rect = WorldRect::new(self.pos, world_size);
+            let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
+            ctx.canvas.copy(
+                &sprite.tex,
+                Some(cel),
+                Some(screen_rect_to_sdl(&screen_box)),
+            )?;
+        }
 
         Ok(())
     }

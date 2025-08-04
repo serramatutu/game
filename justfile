@@ -4,6 +4,8 @@ set shell := ["zsh", "-uc"]
 now := `date +%s`
 target := "debug"
 
+aseprite_args := "--batch --format json-array --sheet-type packed --list-tags --split-layers --split-tags --trim --merge-duplicates --filename-format '{tag}#{frame}#{layer}'"
+
 check: check-lint check-fmt 
 
 check-lint:
@@ -37,6 +39,9 @@ _timestamp-game:
 
 clean-libs:
   rm target/{{target}}/libgame.so.*
+
+res-export target:
+  aseprite {{aseprite_args}} resources/src/{{target}}.aseprite --sheet resources/obj/{{target}}.png --data resources/obj/{{target}}.json
 
 run:
  cargo run --package binary

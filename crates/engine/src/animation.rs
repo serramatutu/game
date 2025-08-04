@@ -1,8 +1,9 @@
-#[derive(Clone)]
+/// A keyframe in an animation
+#[derive(Clone, Debug)]
 pub struct Keyframe<T: Clone> {
-    duration_ms: u16,
-    end_at_ms: u64,
-    value: T,
+    pub duration_ms: u16,
+    pub cumulative_duration_ms: u16,
+    pub value: T,
 }
 
 impl<T: Clone> Keyframe<T> {
@@ -10,57 +11,88 @@ impl<T: Clone> Keyframe<T> {
         Self {
             duration_ms,
             value,
-            end_at_ms: 0,
+            cumulative_duration_ms: 0,
         }
     }
 }
 
-#[derive(Clone)]
+/// A collection of keyframes
+#[derive(Clone, Debug)]
 pub struct Animation<T: Clone> {
-    started_ms: u64,
     keyframes: Vec<Keyframe<T>>,
-    pub cursor: usize,
 }
 
 impl<T: Clone> Animation<T> {
-    /// Whether this animation is playing
-    pub fn playing(&self) -> bool {
-        self.cursor < self.keyframes.len()
+    /// Create a new animation from keyframes
+    pub fn new(keyframes: impl IntoIterator<Item = Keyframe<T>>) -> Self {
+        let kf: Vec<_> = keyframes
+            .into_iter()
+            .scan(0u16, |acc, k| {
+                *acc += k.duration_ms;
+                Some(Keyframe {
+                    duration_ms: k.duration_ms,
+                    cumulative_duration_ms: *acc,
+                    value: k.value,
+                })
+            })
+            .collect();
+        assert!(!kf.is_empty(), "Empty keyframes");
+        Self { keyframes: kf }
+    }
+}
+
+/// A playback cursor in an animation
+#[derive(Copy, Clone, Debug, Default)]
+pub struct AnimationCursor {
+    start_ms: u64,
+    current_frame: usize,
+    pub playing: bool,
+}
+
+impl AnimationCursor {
+    /// Create a new cursor
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Create a new animation from keyframe durations
-    pub fn new(keyframes: &[Keyframe<T>]) -> Self {
-        assert!(!keyframes.is_empty(), "Empty keyframes");
-        Self {
-            started_ms: 0,
-            cursor: keyframes.len(),
-            keyframes: Vec::from(keyframes),
-        }
+    /// Start this cursor
+    pub fn start<'anim, T: Clone>(
+        &mut self,
+        now_ms: u64,
+        animation: &'anim Animation<T>,
+    ) -> &'anim T {
+        self.start_ms = now_ms;
+        self.current_frame = 0;
+        self.playing = true;
+
+        &animation
+            .keyframes
+            .first()
+            .expect("Keyframes cannnot be empty")
+            .value
     }
 
-    /// Start playing this animation
-    pub fn start(&mut self, now_ms: u64) -> &T {
-        self.started_ms = now_ms;
-        self.cursor = 0;
-
-        let mut acc = now_ms;
-        for k in self.keyframes.iter_mut() {
-            k.end_at_ms = acc + k.duration_ms as u64;
-            acc = k.end_at_ms;
+    /// Update this cursor
+    pub fn update<'anim, T: Clone>(
+        &mut self,
+        now_ms: u64,
+        animation: &'anim Animation<T>,
+    ) -> Option<&'anim T> {
+        if !self.playing {
+            return None;
         }
 
-        &self.keyframes.first().unwrap().value
-    }
-
-    /// Update this animation
-    pub fn update(&mut self, now_ms: u64) -> Option<&T> {
-        while self.cursor < self.keyframes.len() && self.keyframes[self.cursor].end_at_ms < now_ms {
-            self.cursor += 1;
+        while self.current_frame < animation.keyframes.len()
+            && animation.keyframes[self.current_frame].cumulative_duration_ms as u64 + self.start_ms
+                < now_ms
+        {
+            self.current_frame += 1;
         }
 
-        if self.playing() {
-            Some(&self.keyframes[self.cursor].value)
+        if self.current_frame < animation.keyframes.len() {
+            Some(&animation.keyframes[self.current_frame].value)
         } else {
+            self.playing = false;
             None
         }
     }

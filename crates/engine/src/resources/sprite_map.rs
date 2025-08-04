@@ -1,15 +1,16 @@
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use indexmap::IndexMap;
 use sdl3::image::LoadTexture;
 use sdl3::render::{FRect, ScaleMode, Texture, TextureCreator};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-use crate::coords::WorldSize;
+use crate::animation::{Animation, AnimationCursor, Keyframe};
 
 use super::manager::{ResourceError, ResourceLoader, ResourceManager};
 
-#[derive(Serialize, Deserialize)]
+/// A rectangle as exported by Aseprite
+#[derive(Deserialize, Debug)]
 struct AsepriteRect {
     x: u16,
     y: u16,
@@ -29,62 +30,162 @@ impl AsepriteRect {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct AsepriteSize {
-    w: u16,
-    h: u16,
-}
-
-/// Metadata about a single frame in a `SpriteMap`
-#[derive(Serialize, Deserialize)]
-pub struct FrameMetadata {
-    #[serde(rename(deserialize = "frame"))]
+/// A single cel in an Aseprite export
+#[derive(Deserialize, Debug)]
+struct AsepriteCel {
+    #[serde(rename = "filename")]
+    name: String,
+    #[serde(rename = "frame")]
     rect: AsepriteRect,
-    rotated: bool,
-    trimmed: bool,
-    #[serde(rename(deserialize = "spriteSourceSize"))]
-    sprite_source_size: AsepriteRect,
-    #[serde(rename(deserialize = "sourceSize"))]
-    source_size: AsepriteSize,
     duration: u16,
 }
 
-/// A sprite map JSON file that contains the metadata about individual frames.
+/// The animation direction
+#[derive(Deserialize, Debug)]
+enum AsepriteAnimDirection {
+    #[serde(rename = "pingpong")]
+    PingPong,
+    #[serde(rename = "forward")]
+    Forward,
+    #[serde(rename = "backward")]
+    Backward,
+}
+
+/// An aseprite animation tag
+#[derive(Deserialize, Debug)]
+struct AsepriteAnim {
+    name: String,
+    direction: AsepriteAnimDirection,
+}
+
+/// The metadata of an Aseprite export
+#[derive(Deserialize, Debug)]
+struct AsepriteMeta {
+    #[serde(rename = "frameTags")]
+    animations: Vec<AsepriteAnim>,
+}
+
+/// A raw sprite map JSON file that contains the metadata about a spritesheet.
 ///
 /// This is in the same format as exported by Aseprite.
-#[derive(Deserialize)]
-pub struct SpriteMapMetadata {
-    frames: IndexMap<String, FrameMetadata>,
+#[derive(Deserialize, Debug)]
+struct AsepriteExport {
+    meta: AsepriteMeta,
+    #[serde(rename = "frames")]
+    cels: Vec<AsepriteCel>,
+}
+
+/// An animation of frames within a sprite map
+#[derive(Debug)]
+pub struct SpriteMapAnimation {
+    /// Maps layer names to the layer indexes
+    pub layers: HashMap<String, u8>,
+    /// Each keyframe is a vec where the index is the layer index and the value is the cel index in the spritemap
+    pub keyframes: Animation<Vec<u16>>,
+}
+
+impl SpriteMapAnimation {
+    /// Update an animation cursor and return the cel indexes of the current frame
+    pub fn update_cursor(&self, cursor: &mut AnimationCursor, now_ms: u64) -> Option<&[u16]> {
+        cursor
+            .update(now_ms, &self.keyframes)
+            .map(|vec| vec.as_ref())
+    }
+
+    /// Update the cursor and loop if cursor is ended
+    pub fn update_cursor_loop(&self, cursor: &mut AnimationCursor, now_ms: u64) -> &[u16] {
+        match self.update_cursor(cursor, now_ms) {
+            None => cursor.start(now_ms, &self.keyframes).as_ref(),
+            Some(v) => v,
+        }
+    }
+
+    /// Get a `SpriteMapAnimation` from the Aseprite export
+    fn from_aseprite(fts: &AsepriteAnim, all_cels: &[AsepriteCel]) -> Self {
+        let mut seen_layers = HashSet::new();
+        let mut unique_layers = Vec::new();
+
+        // A map of: frame index -> (frame duration, layer cel indices)
+        let mut frames: HashMap<u8, (u16, Vec<u16>)> = HashMap::new();
+        for (sprite_map_i, cel) in all_cels.iter().enumerate() {
+            let split: Vec<_> = cel.name.splitn(3, "#").collect();
+            assert!(
+                split.len() == 3,
+                "Frame ID should be in the format 'anim#frame_i#layer_name'"
+            );
+
+            let anim_name = split[0];
+            if anim_name != fts.name {
+                continue;
+            }
+
+            let layer = split[2];
+            if !seen_layers.contains(layer) {
+                unique_layers.push(layer);
+                seen_layers.insert(layer);
+            }
+
+            let frame_i = split[1]
+                .parse::<u8>()
+                .expect("Frame index should be number");
+            let (frame_duration, frame_layers) = frames.entry(frame_i).or_default();
+
+            *frame_duration = cel.duration;
+            frame_layers.push(sprite_map_i as u16);
+        }
+
+        // Create a tuple of the keyframes from the hashmap, sort the tuples by index, then turn
+        // them into a vec
+        let mut keyframe_tuples: Vec<_> = frames
+            .into_iter()
+            .map(|(frame_i, (duration, layers))| (frame_i, Keyframe::new(duration, layers)))
+            .collect();
+        keyframe_tuples.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut keyframes: Vec<_> = keyframe_tuples
+            .into_iter()
+            .map(|(_i, layers)| layers)
+            .collect();
+
+        let full_frames = match fts.direction {
+            AsepriteAnimDirection::Forward => keyframes,
+            AsepriteAnimDirection::Backward => {
+                keyframes.reverse();
+                keyframes
+            }
+            AsepriteAnimDirection::PingPong => {
+                let rev = Vec::from(&keyframes[1..keyframes.len() - 1]);
+                keyframes.reverse();
+                keyframes.extend(rev);
+                keyframes
+            }
+        };
+
+        let layer_ids = unique_layers
+            .into_iter()
+            .enumerate()
+            .map(|(i, name)| (name.to_string(), i as u8))
+            .collect();
+
+        SpriteMapAnimation {
+            layers: layer_ids,
+            keyframes: Animation::new(full_frames),
+        }
+    }
 }
 
 // Holds many sprites in one single image. Each frame can be indexed from this map.
 pub struct SpriteMap<'sdlcanvas> {
     pub tex: Texture<'sdlcanvas>,
-    metadata: SpriteMapMetadata,
+    pub cels: Vec<FRect>,
+    pub animations: HashMap<String, SpriteMapAnimation>,
 }
 
 impl<'sdlcanvas> SpriteMap<'sdlcanvas> {
-    /// The total number of frames on this sprite map
-    pub fn num_frames(&self) -> usize {
-        self.metadata.frames.len()
-    }
-
-    /// Get the rect in the sprite for a given frame
-    pub fn get_frame_rect(&self, index: usize) -> Option<FRect> {
-        let frame = self.metadata.frames.get_index(index);
-        let (_name, frame_meta) = frame?;
-        Some(frame_meta.rect.to_sdl())
-    }
-
-    /// Get the size of this texture in world coordinates
-    pub fn get_world_size(&self, pixel_to_world: f32, index: usize) -> Option<WorldSize> {
-        let frame = self.metadata.frames.get_index(index);
-        let (_name, frame_meta) = frame?;
-        let pixel_rect = frame_meta.rect.to_sdl();
-        Some(WorldSize::new(
-            pixel_rect.w * pixel_to_world,
-            pixel_rect.h * pixel_to_world,
-        ))
+    /// Get an animation by name or panic
+    pub fn get_animation(&self, name: &str) -> &SpriteMapAnimation {
+        self.animations
+            .get(name)
+            .unwrap_or_else(|| panic!("Invalid animation '{name}'"))
     }
 }
 
@@ -119,7 +220,7 @@ impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
         );
 
         let meta_str = std::fs::read_to_string(meta_path).or(Err(ResourceError::LoadFailed))?;
-        let metadata: SpriteMapMetadata =
+        let metadata: AsepriteExport =
             serde_json::from_str(&meta_str).or(Err(ResourceError::LoadFailed))?;
 
         let mut tex = self
@@ -128,7 +229,29 @@ impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
             .or(Err(ResourceError::LoadFailed))?;
         tex.set_scale_mode(ScaleMode::Nearest);
 
-        Ok(SpriteMap { tex, metadata })
+        let sm = SpriteMap {
+            tex,
+            cels: metadata
+                .cels
+                .iter()
+                .map(|layer| layer.rect.to_sdl())
+                .collect(),
+            animations: metadata
+                .meta
+                .animations
+                .iter()
+                .map(|ft| {
+                    (
+                        ft.name.to_owned(),
+                        SpriteMapAnimation::from_aseprite(ft, &metadata.cels),
+                    )
+                })
+                .collect(),
+        };
+
+        println!("{:#?}", sm.animations);
+
+        Ok(sm)
     }
 }
 
