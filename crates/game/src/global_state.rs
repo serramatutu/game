@@ -16,8 +16,11 @@ pub(crate) struct ResourceIds<'res> {
 /// The state that gets persisted between calls of `update_and_render`
 #[derive(Clone)]
 pub(crate) struct State<'gamestatic> {
-    pub zorb: Zorb,
+    // Object and resource management
     pub resource_ids: ResourceIds<'gamestatic>,
+
+    // World objects
+    pub zorb: Zorb,
 }
 
 /// A context object that can be passed around throughout the game

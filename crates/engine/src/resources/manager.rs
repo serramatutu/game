@@ -6,7 +6,7 @@ use crate::types::Id;
 
 #[derive(Error, Debug)]
 pub enum ResourceError {
-    #[error("The resource could not be loaded.")]
+    #[error("Resource could not be loaded")]
     LoadFailed,
 }
 

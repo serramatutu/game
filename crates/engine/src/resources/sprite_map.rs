@@ -9,6 +9,9 @@ use crate::animation::{Animation, AnimationCursor, Keyframe};
 
 use super::manager::{ResourceError, ResourceLoader, ResourceManager};
 
+/// Add this tag to frames that should be skipped
+const TAG_NO_EXPORT: &str = "no-export";
+
 /// A rectangle as exported by Aseprite
 #[derive(Deserialize, Debug)]
 struct AsepriteRect {
@@ -38,6 +41,8 @@ struct AsepriteCel {
     #[serde(rename = "frame")]
     rect: AsepriteRect,
     duration: u16,
+    #[serde(skip)]
+    tags: HashSet<String>,
 }
 
 /// The animation direction
@@ -58,11 +63,27 @@ struct AsepriteAnim {
     direction: AsepriteAnimDirection,
 }
 
+/// A tagged cel
+#[derive(Deserialize, Debug)]
+struct AsepriteLayerTagCel {
+    frame: u8,
+    data: String,
+}
+
+/// An aseprite layer tag
+#[derive(Deserialize, Debug)]
+struct AsepriteLayerTag {
+    name: String,
+    #[serde(default)]
+    cels: Vec<AsepriteLayerTagCel>,
+}
+
 /// The metadata of an Aseprite export
 #[derive(Deserialize, Debug)]
 struct AsepriteMeta {
     #[serde(rename = "frameTags")]
     animations: Vec<AsepriteAnim>,
+    layers: Vec<AsepriteLayerTag>,
 }
 
 /// A raw sprite map JSON file that contains the metadata about a spritesheet.
@@ -82,6 +103,21 @@ pub struct SpriteMapAnimation {
     pub layers: HashMap<String, u8>,
     /// Each keyframe is a vec where the index is the layer index and the value is the cel index in the spritemap
     pub keyframes: Animation<Vec<u16>>,
+}
+
+/// Split a cel's name into (anim, frame_index, layer_name)
+fn split_cel_name(name: &str) -> (&str, u8, &str) {
+    let split: Vec<_> = name.splitn(3, "#").collect();
+    assert!(
+        split.len() == 3,
+        "Frame ID should be in the format 'anim#frame_i#layer_name'"
+    );
+
+    let frame_i = split[1]
+        .parse::<u8>()
+        .expect("Frame index should be number");
+
+    (split[0], frame_i, split[2])
 }
 
 impl SpriteMapAnimation {
@@ -108,26 +144,17 @@ impl SpriteMapAnimation {
         // A map of: frame index -> (frame duration, layer cel indices)
         let mut frames: HashMap<u8, (u16, Vec<u16>)> = HashMap::new();
         for (sprite_map_i, cel) in all_cels.iter().enumerate() {
-            let split: Vec<_> = cel.name.splitn(3, "#").collect();
-            assert!(
-                split.len() == 3,
-                "Frame ID should be in the format 'anim#frame_i#layer_name'"
-            );
+            let (anim_name, frame_i, layer_name) = split_cel_name(&cel.name);
 
-            let anim_name = split[0];
-            if anim_name != fts.name {
+            if anim_name != fts.name || cel.tags.contains(TAG_NO_EXPORT) {
                 continue;
             }
 
-            let layer = split[2];
-            if !seen_layers.contains(layer) {
-                unique_layers.push(layer);
-                seen_layers.insert(layer);
+            if !seen_layers.contains(layer_name) {
+                unique_layers.push(layer_name);
+                seen_layers.insert(layer_name);
             }
 
-            let frame_i = split[1]
-                .parse::<u8>()
-                .expect("Frame index should be number");
             let (frame_duration, frame_layers) = frames.entry(frame_i).or_default();
 
             *frame_duration = cel.duration;
@@ -220,8 +247,29 @@ impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
         );
 
         let meta_str = std::fs::read_to_string(meta_path).or(Err(ResourceError::LoadFailed))?;
-        let metadata: AsepriteExport =
+        let mut metadata: AsepriteExport =
             serde_json::from_str(&meta_str).or(Err(ResourceError::LoadFailed))?;
+
+        // Aseprite's frame tags are not ideal so we have to attach metadata to each cel manually
+        let mut frame_indexes_by_layer: HashMap<&str, u8> = HashMap::new();
+        for cel in &mut metadata.cels {
+            let (_, _, layer_name) = split_cel_name(&cel.name);
+
+            let index_in_layer = frame_indexes_by_layer
+                .entry(layer_name)
+                .and_modify(|i| *i += 1)
+                .or_insert(0);
+
+            let Some(layer_tag) = metadata.meta.layers.iter().find(|i| i.name == layer_name) else {
+                continue;
+            };
+
+            for cel_tag in &layer_tag.cels {
+                if cel_tag.frame == *index_in_layer {
+                    cel.tags = HashSet::from_iter(cel_tag.data.split(" ").map(|s| s.to_string()));
+                }
+            }
+        }
 
         let mut tex = self
             .sdl_loader
@@ -248,8 +296,6 @@ impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
                 })
                 .collect(),
         };
-
-        println!("{:#?}", sm.animations);
 
         Ok(sm)
     }

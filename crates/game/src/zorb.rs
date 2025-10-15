@@ -11,7 +11,9 @@ const SPEED_S: f32 = 5.0;
 
 #[derive(Clone)]
 pub(crate) struct Zorb {
-    pub anim: AnimationCursor,
+    pub body_anim: AnimationCursor,
+    pub face_anim: AnimationCursor,
+
     pub pos: WorldPoint,
     pub target: WorldPoint,
 }
@@ -31,23 +33,28 @@ impl Zorb {
 
         ctx.canvas.set_draw_color(Color::RGB(255, 0, 0));
 
-        // TODO: get animation from spritesheet
         let sprite = ctx.resources.sprites.get(ctx.resource_ids.zorb_sprite);
 
-        let anim = sprite.get_animation("body:walk");
-        let layer_cels = anim.update_cursor_loop(&mut self.anim, ctx.now_ms);
-        for cel_i in layer_cels.iter() {
-            let cel = sprite.cels[*cel_i as usize];
+        let anims = [
+            (sprite.get_animation("body:walk"), &mut self.body_anim),
+            (sprite.get_animation("face:cute"), &mut self.face_anim),
+        ];
 
-            // TODO: proper pixel to world conversion somewhere
-            let world_size = WorldSize::new(cel.w * PIXEL_TO_WORLD, cel.h * PIXEL_TO_WORLD);
-            let world_rect = WorldRect::new(self.pos, world_size);
-            let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
-            ctx.canvas.copy(
-                &sprite.tex,
-                Some(cel),
-                Some(screen_rect_to_sdl(&screen_box)),
-            )?;
+        for (anim, cursor) in anims {
+            let layer_cels = anim.update_cursor_loop(cursor, ctx.now_ms);
+            for cel_i in layer_cels.iter() {
+                let cel = sprite.cels[*cel_i as usize];
+
+                // TODO: proper pixel to world conversion somewhere
+                let world_size = WorldSize::new(cel.w * PIXEL_TO_WORLD, cel.h * PIXEL_TO_WORLD);
+                let world_rect = WorldRect::new(self.pos, world_size);
+                let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
+                ctx.canvas.copy(
+                    &sprite.tex,
+                    Some(cel),
+                    Some(screen_rect_to_sdl(&screen_box)),
+                )?;
+            }
         }
 
         Ok(())

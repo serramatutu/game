@@ -4,7 +4,7 @@ set shell := ["zsh", "-uc"]
 now := `date +%s`
 target := "debug"
 
-aseprite_args := "--batch --format json-array --sheet-type packed --list-tags --split-layers --split-tags --trim --merge-duplicates --filename-format '{tag}#{frame}#{layer}'"
+aseprite_args := "--batch --format json-array --sheet-type packed --ignore-empty --list-tags --list-layers --split-layers --split-tags --trim --merge-duplicates --filename-format '{tag}#{frame}#{layer}'"
 
 check: check-lint check-fmt 
 
