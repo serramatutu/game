@@ -38,9 +38,16 @@ impl AsepriteRect {
 struct AsepriteCel {
     #[serde(rename = "filename")]
     name: String,
-    #[serde(rename = "frame")]
-    rect: AsepriteRect,
     duration: u16,
+
+    /// The position of this cel in the packed sprite map
+    #[serde(rename = "frame")]
+    sprite_tex_rect: AsepriteRect,
+
+    /// The position of this cel in the original source
+    #[serde(rename = "spriteSourceSize")]
+    source_rect: AsepriteRect,
+
     #[serde(skip)]
     tags: HashSet<String>,
 }
@@ -200,10 +207,23 @@ impl SpriteMapAnimation {
     }
 }
 
+pub struct SpriteMapCel {
+    /// The rect where this sprite is positioned in the global texture
+    pub tex_rect: FRect,
+    /// The rect where this sprite is positioned relative to its source material
+    pub src_rect: FRect,
+}
+
+impl SpriteMapCel {
+    pub fn new(tex_rect: FRect, src_rect: FRect) -> Self {
+        Self { tex_rect, src_rect }
+    }
+}
+
 // Holds many sprites in one single image. Each frame can be indexed from this map.
 pub struct SpriteMap<'sdlcanvas> {
     pub tex: Texture<'sdlcanvas>,
-    pub cels: Vec<FRect>,
+    pub cels: Vec<SpriteMapCel>,
     pub animations: HashMap<String, SpriteMapAnimation>,
 }
 
@@ -282,7 +302,9 @@ impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
             cels: metadata
                 .cels
                 .iter()
-                .map(|layer| layer.rect.to_sdl())
+                .map(|layer| {
+                    SpriteMapCel::new(layer.sprite_tex_rect.to_sdl(), layer.source_rect.to_sdl())
+                })
                 .collect(),
             animations: metadata
                 .meta

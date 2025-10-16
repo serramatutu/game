@@ -43,15 +43,22 @@ impl Zorb {
         for (anim, cursor) in anims {
             let layer_cels = anim.update_cursor_loop(cursor, ctx.now_ms);
             for cel_i in layer_cels.iter() {
-                let cel = sprite.cels[*cel_i as usize];
+                let cel = &sprite.cels[*cel_i as usize];
 
                 // TODO: proper pixel to world conversion somewhere
-                let world_size = WorldSize::new(cel.w * PIXEL_TO_WORLD, cel.h * PIXEL_TO_WORLD);
-                let world_rect = WorldRect::new(self.pos, world_size);
+                let world_pos = WorldPoint::new(
+                    self.pos.x + cel.src_rect.x * PIXEL_TO_WORLD,
+                    self.pos.y + cel.src_rect.y * PIXEL_TO_WORLD,
+                );
+                let world_size = WorldSize::new(
+                    cel.src_rect.w * PIXEL_TO_WORLD,
+                    cel.src_rect.h * PIXEL_TO_WORLD,
+                );
+                let world_rect = WorldRect::new(world_pos, world_size);
                 let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
                 ctx.canvas.copy(
                     &sprite.tex,
-                    Some(cel),
+                    Some(cel.tex_rect),
                     Some(screen_rect_to_sdl(&screen_box)),
                 )?;
             }

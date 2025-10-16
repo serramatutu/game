@@ -44,7 +44,7 @@ res-export target:
   aseprite {{aseprite_args}} resources/src/{{target}}.aseprite --sheet resources/obj/{{target}}.png --data resources/obj/{{target}}.json
 
 run:
- cargo run --package binary
+ RUST_BACKTRACE=1 cargo run --package binary
 
 test:
   cargo nextest run
