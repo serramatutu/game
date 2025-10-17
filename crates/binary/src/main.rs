@@ -108,7 +108,7 @@ pub fn main() -> Result<()> {
 
     let mut resources = Resources {
         root: PathBuf::from("."),
-        sprites: SpriteMapManager::new(SpriteMapLoader::new(tc2)),
+        sprites: SpriteMapManager::new(GlobalAllocator, SpriteMapLoader::new(GlobalAllocator, tc2)),
     };
     let mut init_params = InitParams {
         allocator: GlobalAllocator,

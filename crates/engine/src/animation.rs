@@ -1,3 +1,5 @@
+use allocator_api2::vec::Vec;
+
 /// A keyframe in an animation
 #[derive(Clone, Debug)]
 pub struct Keyframe<T: Clone> {

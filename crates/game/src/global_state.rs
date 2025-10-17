@@ -1,3 +1,4 @@
+use allocator_api2::alloc::{Allocator, Global as GlobalAllocator};
 use engine::{
     camera::Camera,
     resources::{Resources, sprite_map::SpriteMap},
@@ -25,7 +26,9 @@ pub(crate) struct State<'gamestatic> {
 
 /// A context object that can be passed around throughout the game
 #[expect(dead_code)]
-pub(crate) struct Ctx<'gamestatic, 'caller> {
+pub(crate) struct Ctx<'gamestatic, 'caller, A: Allocator = GlobalAllocator> {
+    pub allocator: A,
+
     pub canvas: &'gamestatic mut WindowCanvas,
     pub camera: &'gamestatic mut Camera,
 

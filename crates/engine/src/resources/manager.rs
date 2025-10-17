@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use allocator_api2::alloc::{Allocator, Global as GlobalAllocator};
+use hashbrown::{DefaultHashBuilder, HashMap};
 use std::path::Path;
 use thiserror::Error;
 
@@ -19,25 +20,25 @@ where
 }
 
 /// Cache any resources loaded by a `ResourceLoader`
-pub struct ResourceManager<'this, Res, Load>
+pub struct ResourceManager<'this, Res, Load, Alloc: Allocator = GlobalAllocator>
 where
     Res: 'this,
     Load: 'this + ResourceLoader<'this, Res>,
 {
     next_id: Id<'this, Res>,
     loader: Load,
-    cache: HashMap<Id<'this, Res>, Res>,
+    cache: HashMap<Id<'this, Res>, Res, DefaultHashBuilder, Alloc>,
 }
 
-impl<'this, Res, Load> ResourceManager<'this, Res, Load>
+impl<'this, Res, Load, Alloc: Allocator> ResourceManager<'this, Res, Load, Alloc>
 where
     Res: 'this,
     Load: ResourceLoader<'this, Res>,
 {
-    pub fn new(loader: Load) -> Self {
+    pub fn new(allocator: Alloc, loader: Load) -> Self {
         ResourceManager {
             next_id: Id::new(0),
-            cache: HashMap::new(),
+            cache: HashMap::new_in(allocator),
             loader,
         }
     }

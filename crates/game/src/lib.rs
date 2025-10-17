@@ -101,6 +101,7 @@ pub fn update_and_render<'gamestatic>(
         ))?;
 
     let mut ctx = Ctx {
+        allocator: params.allocator,
         camera: params.camera,
         canvas: params.canvas,
         delta_ms: params.delta_ms,

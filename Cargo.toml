@@ -5,12 +5,15 @@ members = [
 ]
 
 [workspace.dependencies]
-sdl3 = { version = "0.14", features = ["build-from-source", "image"] }
-allocator-api2 = "0.3.0"
+allocator-api2 = { version = "0.2.9", features = ["serde"] }
 anyhow = "1"
 euclid = { version = "0.22", features = ["serde"] }
-thiserror = "2" 
+hashbrown = { version = "0.16", features = ["allocator-api2"] }
+heapless = { version = "0.9", features = ["serde"] }
 libloading = "0.8" 
 num-traits = "0.2"
+paste = "1.0.15"
+sdl3 = { version = "0.14", features = ["build-from-source", "image"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
+thiserror = "2" 

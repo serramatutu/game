@@ -1,6 +1,10 @@
-use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+use allocator_api2::{
+    alloc::{Allocator, Global as GlobalAllocator},
+    vec::Vec,
+};
+use hashbrown::{HashMap, HashSet};
 use sdl3::image::LoadTexture;
 use sdl3::render::{FRect, ScaleMode, Texture, TextureCreator};
 use serde::Deserialize;
@@ -144,12 +148,16 @@ impl SpriteMapAnimation {
     }
 
     /// Get a `SpriteMapAnimation` from the Aseprite export
-    fn from_aseprite(fts: &AsepriteAnim, all_cels: &[AsepriteCel]) -> Self {
-        let mut seen_layers = HashSet::new();
-        let mut unique_layers = Vec::new();
+    fn from_aseprite<A: Allocator + Clone>(
+        allocator: A,
+        fts: &AsepriteAnim,
+        all_cels: &[AsepriteCel],
+    ) -> Self {
+        let mut seen_layers = HashSet::new_in(allocator.clone());
+        let mut unique_layers = Vec::new_in(allocator.clone());
 
         // A map of: frame index -> (frame duration, layer cel indices)
-        let mut frames: HashMap<u8, (u16, Vec<u16>)> = HashMap::new();
+        let mut frames: HashMap<u8, (u16, Vec<u16>), _, A> = HashMap::new_in(allocator.clone());
         for (sprite_map_i, cel) in all_cels.iter().enumerate() {
             let (anim_name, frame_i, layer_name) = split_cel_name(&cel.name);
 
@@ -237,13 +245,17 @@ impl<'sdlcanvas> SpriteMap<'sdlcanvas> {
 }
 
 /// Loads a `SpriteMap` from a PNG and a JSON file
-pub struct SpriteMapLoader<T> {
+pub struct SpriteMapLoader<T, A: Allocator = GlobalAllocator> {
+    allocator: A,
     sdl_loader: TextureCreator<T>,
 }
 
-impl<T> SpriteMapLoader<T> {
-    pub fn new(sdl_loader: TextureCreator<T>) -> SpriteMapLoader<T> {
-        Self { sdl_loader }
+impl<T, A: Allocator> SpriteMapLoader<T, A> {
+    pub fn new(allocator: A, sdl_loader: TextureCreator<T>) -> SpriteMapLoader<T, A> {
+        Self {
+            allocator,
+            sdl_loader,
+        }
     }
 }
 
@@ -271,22 +283,26 @@ impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
             serde_json::from_str(&meta_str).or(Err(ResourceError::LoadFailed))?;
 
         // Aseprite's frame tags are not ideal so we have to attach metadata to each cel manually
-        let mut frame_indexes_by_layer: HashMap<&str, u8> = HashMap::new();
-        for cel in &mut metadata.cels {
-            let (_, _, layer_name) = split_cel_name(&cel.name);
+        {
+            let mut frame_indexes_by_layer: HashMap<&str, u8> = HashMap::new_in(self.allocator);
+            for cel in &mut metadata.cels {
+                let (_, _, layer_name) = split_cel_name(&cel.name);
 
-            let index_in_layer = frame_indexes_by_layer
-                .entry(layer_name)
-                .and_modify(|i| *i += 1)
-                .or_insert(0);
+                let index_in_layer = frame_indexes_by_layer
+                    .entry(layer_name)
+                    .and_modify(|i| *i += 1)
+                    .or_insert(0);
 
-            let Some(layer_tag) = metadata.meta.layers.iter().find(|i| i.name == layer_name) else {
-                continue;
-            };
+                let Some(layer_tag) = metadata.meta.layers.iter().find(|i| i.name == layer_name)
+                else {
+                    continue;
+                };
 
-            for cel_tag in &layer_tag.cels {
-                if cel_tag.frame == *index_in_layer {
-                    cel.tags = HashSet::from_iter(cel_tag.data.split(" ").map(|s| s.to_string()));
+                for cel_tag in &layer_tag.cels {
+                    if cel_tag.frame == *index_in_layer {
+                        cel.tags =
+                            HashSet::from_iter(cel_tag.data.split(" ").map(|s| s.to_string()));
+                    }
                 }
             }
         }
@@ -313,7 +329,7 @@ impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
                 .map(|ft| {
                     (
                         ft.name.to_owned(),
-                        SpriteMapAnimation::from_aseprite(ft, &metadata.cels),
+                        SpriteMapAnimation::from_aseprite(self.allocator, ft, &metadata.cels),
                     )
                 })
                 .collect(),
@@ -324,5 +340,5 @@ impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
 }
 
 /// A resource manager for `SpriteMap`
-pub type SpriteMapManager<'sdlcanvas, T> =
-    ResourceManager<'sdlcanvas, SpriteMap<'sdlcanvas>, SpriteMapLoader<T>>;
+pub type SpriteMapManager<'sdlcanvas, T, A = GlobalAllocator> =
+    ResourceManager<'sdlcanvas, SpriteMap<'sdlcanvas>, SpriteMapLoader<T>, A>;
