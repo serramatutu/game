@@ -21,6 +21,7 @@ const MAX_ENTITIES: usize = 8192;
 /// They execute in order from top to bottom
 const SYSTEMS: [SystemFn; 2] = [
     systems::navigation::follow::update_and_render,
+    #[cfg(debug_assertions)]
     systems::debug::draw::update_and_render,
 ];
 
@@ -30,20 +31,13 @@ const SYSTEMS: [SystemFn; 2] = [
 /// - The zero index of each component list is a dummy that is initialized with
 ///   default and should not belong to any entity.
 /// - The zero index entity is a null entity that is never in the world.
-#[derive(Clone)]
+#[derive(Clone, Default, Debug)]
 pub struct Ecs {
     components: components::Components,
     entities: Vec<Entity, MAX_ENTITIES>,
 }
 
 impl Ecs {
-    pub fn new() -> Self {
-        Self {
-            components: components::Components::new(),
-            entities: Vec::new(),
-        }
-    }
-
     fn get_component<T: Copy>(components: &[(usize, T)], idx: usize) -> Option<T> {
         match idx {
             SENTINEL => None,
@@ -75,41 +69,38 @@ impl Ecs {
     }
 }
 
-impl Default for Ecs {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Helper to create a getter for a component type in the `Ecs` struct
 macro_rules! impl_accessor {
-    ($attr:ident, $ret:ty) => {
+    ($attr:ident, $type:ty) => {
         paste! {
-            pub fn [<$attr _for>](&self, entity_id: usize) -> Option<$ret> {
+            pub fn [<$attr _for>](&self, entity_id: usize) -> Option<$type> {
                 let entity = self.get_entity(entity_id);
                 Self::get_component(&self.components.$attr, entity.$attr)
             }
 
-            pub fn [<$attr _for_unchecked>](&self, entity_id: usize) -> $ret {
+            pub fn [<$attr _for_unchecked>](&self, entity_id: usize) -> $type {
                 let entity = self.get_entity(entity_id);
-                debug_assert!(entity.$attr != SENTINEL);
+                debug_assert!(entity.$attr != SENTINEL, concat!("Tried to get '",stringify!($attr),"' attribute from entity that does not contain it."));
                 let (_entity_id, component) = self.components.$attr[entity.$attr];
                 component
             }
 
-            pub fn [<$attr _for_mut>](&mut self, entity_id: usize) -> Option<&mut $ret> {
+            pub fn [<$attr _for_mut>](&mut self, entity_id: usize) -> Option<&mut $type> {
                 let attr_idx = self.get_entity(entity_id).$attr;
                 Self::get_component_mut(&mut self.components.$attr, attr_idx)
             }
 
-            pub fn [<$attr _for_mut_unchecked>](&mut self, entity_id: usize) -> &mut $ret {
+            pub fn [<set_ $attr _for>](&mut self, entity_id: usize, val: $type) {
                 let attr_idx = self.get_entity(entity_id).$attr;
-                debug_assert!(attr_idx != SENTINEL);
-                &mut self.components.$attr[attr_idx].1
+                debug_assert!(attr_idx != SENTINEL, concat!("Tried to set '",stringify!($attr),"' in entity that does not contain it."));
+                self.components.$attr[attr_idx].1 = val;
             }
 
-            pub fn [<$attr _iter>](&self) -> impl Iterator<Item = &(usize, $ret)> {
-                self.components.$attr.iter()
+            // TODO: unset with component swap
+
+            pub fn [<$attr _iter>](&self) -> impl Iterator<Item = &(usize, $type)> {
+                // skip the sentinel
+                self.components.$attr.iter().skip(1)
             }
         }
     };
@@ -145,7 +136,7 @@ macro_rules! impl_entity_spawner {
                 paste! {
                     #[doc= concat!("Add the default", stringify!($attr) , " value to the spawned entity")]
                     pub fn [<with_ $attr _default>](mut self) -> Self {
-                        self.$attr = Default::default();
+                        self.$attr = Some(Default::default());
                         self
                     }
 
@@ -168,6 +159,7 @@ macro_rules! impl_entity_spawner {
                 // silently?
                 ecs.entities.push(Default::default()).unwrap_or_else(|_| panic!("Too many entities"));
                 let entity = &mut ecs.entities[entity_id];
+
 
                 $(
                     if let Some(value) = self.$attr {

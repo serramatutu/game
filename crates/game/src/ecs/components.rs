@@ -1,11 +1,17 @@
-use engine::coords::WorldPoint;
+use engine::coords::{WorldPoint, WorldVector};
 use heapless::Vec;
+use sdl3::pixels::Color;
 
 use crate::ecs::MAX_ENTITIES;
 
 pub type Pos = WorldPoint;
-pub type Vel = WorldPoint;
+pub type Vel = WorldVector;
 pub type FollowTarget = usize;
+
+#[derive(Copy, Clone, Default, Debug)]
+pub struct DebugFlags {
+    pub box_color: Option<Color>,
+}
 
 /// Creates a list of (attr, type) for all possible components and calls the given macro.
 ///
@@ -16,7 +22,9 @@ macro_rules! with_components {
         $inner_macro! {
             (pos, $crate::ecs::components::Pos),
             (vel, $crate::ecs::components::Vel),
-            (follow_target, $crate::ecs::components::FollowTarget)
+            (follow_target, $crate::ecs::components::FollowTarget),
+            // FIXME: remove debug flags in prod build
+            (debug, $crate::ecs::components::DebugFlags)
         }
     };
 }
@@ -29,7 +37,7 @@ macro_rules! impl_entity {
         ///
         /// Component index 0 means the entity does not have that component
         /// attached to it.
-        #[derive(Clone, Default)]
+        #[derive(Clone, Default, Debug)]
         pub struct Entity {
             $(
                 pub $attr: usize,
@@ -47,7 +55,7 @@ macro_rules! impl_components {
         ///
         /// The 0th value of every vec is a sentinel value that should not
         /// be used
-        #[derive(Clone)]
+        #[derive(Clone, Debug)]
         pub struct Components {
             $(
                 pub $attr: Vec<(usize, $type), MAX_ENTITIES>,
@@ -76,4 +84,11 @@ fn sentinel_vec<T: Default>() -> Vec<T, MAX_ENTITIES> {
 }
 
 with_components!(impl_entity);
+
 with_components!(impl_components);
+
+impl Default for Components {
+    fn default() -> Self {
+        Components::new()
+    }
+}

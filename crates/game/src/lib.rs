@@ -8,6 +8,7 @@ use std::ptr::NonNull;
 
 use allocator_api2::alloc::{Allocator, Layout};
 use anyhow::Result;
+use ecs::EntitySpawner;
 use engine::coords::WorldPoint;
 use engine::hooks::{DropParams, InitParams, UpdateAndRenderParams};
 
@@ -31,6 +32,9 @@ pub fn init<'gamestatic>(
 
     state.resource_ids.zorb_sprite = params.resources.load_sprite_map("zorb")?;
 
+    // NOTE: have to explicitly call default constructors as memory is initialized
+    // with zeros
+    state.ecs = Default::default();
     state.zorb = spawnables::zorb::spawn(&mut state.ecs);
 
     Ok(ptr)
@@ -59,10 +63,18 @@ pub fn update_and_render<'gamestatic>(
     }
 
     // handle input
-    // let left_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Left);
-    // if left_mouse.down {
-    //     new_state.zorb.target = params.camera.screen_to_world_point(&left_mouse.pos);
-    // }
+    let left_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Left);
+    if left_mouse.down {
+        // TODO: move this to an input handling system
+        let follow_pos = params.camera.screen_to_world_point(&left_mouse.pos);
+        let follow_entity = EntitySpawner::new()
+            .with_pos(follow_pos)
+            .spawn(&mut new_state.ecs);
+
+        new_state
+            .ecs
+            .set_follow_target_for(prev_state.zorb, follow_entity);
+    }
 
     if params.events.key(sdl3::keyboard::Keycode::W).down {
         params.camera.pos.y -= 300.0 * params.delta_ms as f32 / 1000.0;

@@ -1,4 +1,4 @@
-use euclid::{Box2D, Point2D, Rect, Size2D};
+use euclid::{Box2D, Point2D, Rect, Size2D, Vector2D};
 use sdl3::render::FRect;
 
 pub struct ScreenSpace;
@@ -9,6 +9,9 @@ pub type ScreenPoint = Point2D<f32, ScreenSpace>;
 
 /// A size on the screen
 pub type ScreenSize = Size2D<f32, ScreenSpace>;
+
+/// A vector on the screen
+pub type ScreenVector = Vector2D<f32, ScreenSpace>;
 
 /// A box on the screen
 pub type ScreenBox = Box2D<f32, ScreenSpace>;
@@ -21,6 +24,9 @@ pub type WorldPoint = Point2D<f32, WorldSpace>;
 
 /// A size in the world
 pub type WorldSize = Size2D<f32, WorldSpace>;
+
+/// A vector in the world
+pub type WorldVector = Vector2D<f32, WorldSpace>;
 
 /// A box in the world
 pub type WorldBox = Box2D<f32, WorldSpace>;

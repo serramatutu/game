@@ -21,7 +21,7 @@ pub mod follow {
             let diff = target_pos - follower_pos;
             let speed = SPEED_S.min(diff.length());
 
-            *next.vel_for_mut_unchecked(follower_id) += diff.normalize() * speed;
+            next.set_vel_for(follower_id, diff.normalize() * speed);
         }
         Ok(())
     }
