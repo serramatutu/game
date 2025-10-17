@@ -6,7 +6,7 @@ use engine::{
 };
 use sdl3::render::WindowCanvas;
 
-use crate::Zorb;
+use crate::ecs::Ecs;
 
 /// The map of known resource IDs
 #[derive(Clone)]
@@ -21,14 +21,14 @@ pub(crate) struct State<'gamestatic> {
     pub resource_ids: ResourceIds<'gamestatic>,
 
     // World objects
-    pub zorb: Zorb,
+    pub ecs: Ecs,
+    pub zorb: usize,
 }
 
 /// A context object that can be passed around throughout the game
 #[expect(dead_code)]
 pub(crate) struct Ctx<'gamestatic, 'caller, A: Allocator = GlobalAllocator> {
     pub allocator: A,
-
     pub canvas: &'gamestatic mut WindowCanvas,
     pub camera: &'gamestatic mut Camera,
 
@@ -40,6 +40,4 @@ pub(crate) struct Ctx<'gamestatic, 'caller, A: Allocator = GlobalAllocator> {
 
     pub screen_w: u16,
     pub screen_h: u16,
-
-    pub prev_state: State<'gamestatic>,
 }

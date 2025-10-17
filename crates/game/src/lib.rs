@@ -1,18 +1,17 @@
 mod consts;
+mod ecs;
 mod global_state;
-mod zorb;
+mod spawnables;
 
 use std::path::PathBuf;
 use std::ptr::NonNull;
 
 use allocator_api2::alloc::{Allocator, Layout};
 use anyhow::Result;
-use engine::coords::{self, WorldPoint, WorldRect, WorldSize};
+use engine::coords::WorldPoint;
 use engine::hooks::{DropParams, InitParams, UpdateAndRenderParams};
 
 use global_state::Ctx;
-use sdl3::pixels::Color;
-use zorb::Zorb;
 
 use crate::global_state::State;
 
@@ -32,8 +31,7 @@ pub fn init<'gamestatic>(
 
     state.resource_ids.zorb_sprite = params.resources.load_sprite_map("zorb")?;
 
-    state.zorb.pos = WorldPoint::new(400.0, 400.0);
-    state.zorb.target = WorldPoint::new(400.0, 400.0);
+    state.zorb = spawnables::zorb::spawn(&mut state.ecs);
 
     Ok(ptr)
 }
@@ -61,10 +59,10 @@ pub fn update_and_render<'gamestatic>(
     }
 
     // handle input
-    let left_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Left);
-    if left_mouse.down {
-        new_state.zorb.target = params.camera.screen_to_world_point(&left_mouse.pos);
-    }
+    // let left_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Left);
+    // if left_mouse.down {
+    //     new_state.zorb.target = params.camera.screen_to_world_point(&left_mouse.pos);
+    // }
 
     if params.events.key(sdl3::keyboard::Keycode::W).down {
         params.camera.pos.y -= 300.0 * params.delta_ms as f32 / 1000.0;
@@ -90,16 +88,6 @@ pub fn update_and_render<'gamestatic>(
             .change_zoom_around(-(params.delta_ms as f32) / 1000.0, params.events.mouse_pos);
     }
 
-    params.canvas.set_draw_color(Color::YELLOW);
-    params
-        .canvas
-        .fill_rect(coords::convert::screen_rect_to_sdl(
-            &params.camera.world_to_screen_rect(&WorldRect::new(
-                WorldPoint::origin(),
-                WorldSize::new(25.0, 25.0),
-            )),
-        ))?;
-
     let mut ctx = Ctx {
         allocator: params.allocator,
         camera: params.camera,
@@ -110,9 +98,8 @@ pub fn update_and_render<'gamestatic>(
         resource_ids: &new_state.resource_ids,
         screen_w: params.screen_w,
         screen_h: params.screen_h,
-        prev_state,
     };
-    new_state.zorb.update_and_render(&mut ctx)?;
+    new_state.ecs.update_and_render(&mut ctx, &prev_state.ecs)?;
 
     Ok(true)
 }
