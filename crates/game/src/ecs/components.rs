@@ -6,7 +6,12 @@ use crate::ecs::MAX_ENTITIES;
 
 pub type Pos = WorldPoint;
 pub type Vel = WorldVector;
-pub type FollowTarget = usize;
+
+#[derive(Copy, Clone, Default, Debug)]
+pub struct Follow {
+    pub stop_after_arriving: bool,
+    pub target_entity: usize,
+}
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct DebugFlags {
@@ -22,7 +27,7 @@ macro_rules! with_components {
         $inner_macro! {
             (pos, $crate::ecs::components::Pos),
             (vel, $crate::ecs::components::Vel),
-            (follow_target, $crate::ecs::components::FollowTarget),
+            (follow, $crate::ecs::components::Follow),
             // FIXME: remove debug flags in prod build
             (debug, $crate::ecs::components::DebugFlags)
         }

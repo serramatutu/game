@@ -9,6 +9,7 @@ use std::ptr::NonNull;
 use allocator_api2::alloc::{Allocator, Layout};
 use anyhow::Result;
 use ecs::EntitySpawner;
+use ecs::components::Follow;
 use engine::coords::WorldPoint;
 use engine::hooks::{DropParams, InitParams, UpdateAndRenderParams};
 
@@ -71,9 +72,15 @@ pub fn update_and_render<'gamestatic>(
             .with_pos(follow_pos)
             .spawn(&mut new_state.ecs);
 
-        new_state
-            .ecs
-            .set_follow_target_for(prev_state.zorb, follow_entity);
+        new_state.ecs.overwrite_follow_for(
+            prev_state.zorb,
+            Follow {
+                stop_after_arriving: true,
+                target_entity: follow_entity,
+            },
+        );
+
+        // TODO: notify entity to delete itself
     }
 
     if params.events.key(sdl3::keyboard::Keycode::W).down {

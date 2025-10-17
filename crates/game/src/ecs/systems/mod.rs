@@ -2,6 +2,7 @@ use crate::{Ctx, ecs::Ecs};
 
 pub mod debug;
 pub mod navigation;
+pub mod physics;
 
 /// A system that can be called by the ECS
 pub type SystemFn =

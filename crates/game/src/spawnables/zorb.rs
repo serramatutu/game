@@ -5,8 +5,7 @@ use crate::ecs::{Ecs, EntitySpawner};
 pub fn spawn(ecs: &mut Ecs) -> usize {
     let mut spawner = EntitySpawner::new()
         .with_pos(WorldPoint::new(400.0, 400.0))
-        .with_vel_default()
-        .with_follow_target_default();
+        .with_vel_default();
 
     #[cfg(debug_assertions)]
     {
