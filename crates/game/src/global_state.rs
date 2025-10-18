@@ -11,7 +11,7 @@ use crate::ecs::Ecs;
 /// The map of known resource IDs
 #[derive(Clone)]
 pub(crate) struct ResourceIds<'res> {
-    pub zorb_sprite: Id<'res, SpriteMap<'res>>,
+    pub zorb_sprite: Id<SpriteMap<'res>>,
 }
 
 /// The state that gets persisted between calls of `update_and_render`

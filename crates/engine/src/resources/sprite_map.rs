@@ -229,13 +229,13 @@ impl SpriteMapCel {
 }
 
 // Holds many sprites in one single image. Each frame can be indexed from this map.
-pub struct SpriteMap<'sdlcanvas> {
-    pub tex: Texture<'sdlcanvas>,
+pub struct SpriteMap<'tex> {
+    pub tex: Texture<'tex>,
     pub cels: Vec<SpriteMapCel>,
     pub animations: HashMap<String, SpriteMapAnimation>,
 }
 
-impl<'sdlcanvas> SpriteMap<'sdlcanvas> {
+impl<'tex> SpriteMap<'tex> {
     /// Get an animation by name or panic
     pub fn get_animation(&self, name: &str) -> &SpriteMapAnimation {
         self.animations
@@ -259,11 +259,8 @@ impl<T, A: Allocator> SpriteMapLoader<T, A> {
     }
 }
 
-impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
-    fn load(
-        &'this self,
-        full_path: &Path,
-    ) -> Result<SpriteMap<'this>, super::manager::ResourceError> {
+impl<'l, T> ResourceLoader<'l, SpriteMap<'l>> for SpriteMapLoader<T> {
+    fn load(&'l self, full_path: &Path) -> Result<SpriteMap<'l>, super::manager::ResourceError> {
         let tex_path = full_path.with_extension("png");
         let meta_path = full_path.with_extension("json");
 
@@ -340,5 +337,5 @@ impl<'this, T> ResourceLoader<'this, SpriteMap<'this>> for SpriteMapLoader<T> {
 }
 
 /// A resource manager for `SpriteMap`
-pub type SpriteMapManager<'sdlcanvas, T, A = GlobalAllocator> =
-    ResourceManager<'sdlcanvas, SpriteMap<'sdlcanvas>, SpriteMapLoader<T>, A>;
+pub type SpriteMapManager<'tex, T, A = GlobalAllocator> =
+    ResourceManager<SpriteMap<'tex>, SpriteMapLoader<T>, A>;

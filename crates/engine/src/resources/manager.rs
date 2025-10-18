@@ -12,28 +12,23 @@ pub enum ResourceError {
 }
 
 /// Loads a resource of type `Res`
-pub trait ResourceLoader<'this, Res>
-where
-    Res: 'this,
-{
-    fn load(&'this self, key: &Path) -> Result<Res, ResourceError>;
+pub trait ResourceLoader<'l, Res> {
+    fn load(&'l self, key: &Path) -> Result<Res, ResourceError>
+    where
+        Res: 'l;
 }
 
 /// Cache any resources loaded by a `ResourceLoader`
-pub struct ResourceManager<'this, Res, Load, Alloc: Allocator = GlobalAllocator>
-where
-    Res: 'this,
-    Load: 'this + ResourceLoader<'this, Res>,
-{
-    next_id: Id<'this, Res>,
+pub struct ResourceManager<Res, Load, Alloc: Allocator = GlobalAllocator> {
+    next_id: Id<Res>,
     loader: Load,
-    cache: HashMap<Id<'this, Res>, Res, DefaultHashBuilder, Alloc>,
+    cache: HashMap<Id<Res>, Res, DefaultHashBuilder, Alloc>,
 }
 
-impl<'this, Res, Load, Alloc: Allocator> ResourceManager<'this, Res, Load, Alloc>
+impl<'l, Res, Load, Alloc: Allocator> ResourceManager<Res, Load, Alloc>
 where
-    Res: 'this,
-    Load: ResourceLoader<'this, Res>,
+    Res: 'l,
+    Load: ResourceLoader<'l, Res>,
 {
     pub fn new(allocator: Alloc, loader: Load) -> Self {
         ResourceManager {
@@ -44,9 +39,9 @@ where
     }
 
     /// Load a resource into the cache so that subsquent calls to `get()`
-    pub fn load(&'this mut self, key: &Path) -> Result<Id<'this, Res>, ResourceError>
+    pub fn load(&'l mut self, key: &Path) -> Result<Id<Res>, ResourceError>
     where
-        Load: ResourceLoader<'this, Res>,
+        Load: ResourceLoader<'l, Res>,
     {
         let loaded = self.loader.load(key)?;
 
@@ -58,7 +53,7 @@ where
     }
 
     /// Get a resource that was already preloaded otherwise panic
-    pub fn get(&'this self, id: Id<'this, Res>) -> &'this Res {
+    pub fn get(&self, id: Id<Res>) -> &Res {
         self.cache
             .get(&id)
             .unwrap_or_else(|| panic!("Resource ID '{id:?}' was not loaded"))

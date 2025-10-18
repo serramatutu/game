@@ -19,7 +19,7 @@ impl<'res> Resources<'res> {
     pub fn load_sprite_map(
         &'res mut self,
         name: &str,
-    ) -> Result<Id<'res, SpriteMap<'res>>, ResourceError> {
+    ) -> Result<Id<SpriteMap<'res>>, ResourceError> {
         let full_name = self.root.join(name);
         self.sprites.load(&full_name)
     }
