@@ -9,13 +9,13 @@ use crate::{
 #[derive(Debug)]
 pub struct Camera {
     pub pos: WorldPoint,
-    pub zoom: f32,
-    pub min_zoom: f32,
-    pub max_zoom: f32,
+    pub zoom: f64,
+    pub min_zoom: f64,
+    pub max_zoom: f64,
 }
 
 impl Camera {
-    pub fn init(&mut self, min_zoom: f32, max_zoom: f32, pos: WorldPoint) {
+    pub fn init(&mut self, min_zoom: f64, max_zoom: f64, pos: WorldPoint) {
         self.pos = pos;
         self.zoom = 1.0;
         self.min_zoom = min_zoom;
@@ -23,17 +23,17 @@ impl Camera {
     }
 
     /// Set the zoom around the top left corner to a value, clamping it between the max and min allowed zoom
-    pub fn set_zoom(&mut self, new_zoom: f32) {
+    pub fn set_zoom(&mut self, new_zoom: f64) {
         self.zoom = math::clamp(new_zoom, self.min_zoom, self.max_zoom);
     }
 
     /// Change the zoom around the top left corner by a delta, clamping it between the max and min allowed zoom.
-    pub fn change_zoom(&mut self, delta: f32) {
+    pub fn change_zoom(&mut self, delta: f64) {
         self.set_zoom(self.zoom + delta);
     }
 
     /// Change the zoom around the given point by a delta, clamping it between the max and min allowed zoom.
-    pub fn change_zoom_around(&mut self, delta: f32, point: ScreenPoint) {
+    pub fn change_zoom_around(&mut self, delta: f64, point: ScreenPoint) {
         let wp_before = self.screen_to_world_point(&point);
         self.change_zoom(delta);
         let wp_after = self.screen_to_world_point(&point);

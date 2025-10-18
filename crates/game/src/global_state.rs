@@ -37,6 +37,7 @@ pub(crate) struct Ctx<'gamestatic, 'caller, A: Allocator = GlobalAllocator> {
 
     pub now_ms: u64,
     pub delta_ms: u64,
+    pub delta_s: f64,
 
     pub screen_w: u16,
     pub screen_h: u16,

@@ -19,9 +19,8 @@ const MAX_ENTITIES: usize = 8192;
 /// All the registered ECS systems
 ///
 /// They execute in order from top to bottom
-const SYSTEMS: [SystemFn; 3] = [
+const SYSTEMS: [SystemFn; 2] = [
     systems::navigation::follow::update_and_render,
-    systems::physics::update_and_render,
     #[cfg(debug_assertions)]
     systems::debug::draw::update_and_render,
 ];

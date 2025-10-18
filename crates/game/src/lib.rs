@@ -84,27 +84,27 @@ pub fn update_and_render<'gamestatic>(
     }
 
     if params.events.key(sdl3::keyboard::Keycode::W).down {
-        params.camera.pos.y -= 300.0 * params.delta_ms as f32 / 1000.0;
+        params.camera.pos.y -= 300.0 * params.delta_ms as f64 / 1000.0;
     }
     if params.events.key(sdl3::keyboard::Keycode::S).down {
-        params.camera.pos.y += 300.0 * params.delta_ms as f32 / 1000.0;
+        params.camera.pos.y += 300.0 * params.delta_ms as f64 / 1000.0;
     }
     if params.events.key(sdl3::keyboard::Keycode::A).down {
-        params.camera.pos.x -= 300.0 * params.delta_ms as f32 / 1000.0;
+        params.camera.pos.x -= 300.0 * params.delta_ms as f64 / 1000.0;
     }
     if params.events.key(sdl3::keyboard::Keycode::D).down {
-        params.camera.pos.x += 300.0 * params.delta_ms as f32 / 1000.0;
+        params.camera.pos.x += 300.0 * params.delta_ms as f64 / 1000.0;
     }
     if params.events.key(sdl3::keyboard::Keycode::Z).down {
         params.camera.change_zoom_around(
-            1.0 * params.delta_ms as f32 / 1000.0,
+            1.0 * params.delta_ms as f64 / 1000.0,
             params.events.mouse_pos,
         );
     }
     if params.events.key(sdl3::keyboard::Keycode::X).down {
         params
             .camera
-            .change_zoom_around(-(params.delta_ms as f32) / 1000.0, params.events.mouse_pos);
+            .change_zoom_around(-(params.delta_ms as f64) / 1000.0, params.events.mouse_pos);
     }
 
     let mut ctx = Ctx {
@@ -112,6 +112,7 @@ pub fn update_and_render<'gamestatic>(
         camera: params.camera,
         canvas: params.canvas,
         delta_ms: params.delta_ms,
+        delta_s: params.delta_ms as f64 / 1000.0,
         now_ms: params.now_ms,
         resources: params.resources,
         resource_ids: &new_state.resource_ids,

@@ -1,11 +1,10 @@
-use engine::coords::{WorldPoint, WorldVector};
+use engine::coords::WorldPoint;
 use heapless::Vec;
 use sdl3::pixels::Color;
 
 use crate::ecs::MAX_ENTITIES;
 
 pub type Pos = WorldPoint;
-pub type Vel = WorldVector;
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct Follow {
@@ -26,7 +25,6 @@ macro_rules! with_components {
     ($inner_macro:ident) => {
         $inner_macro! {
             (pos, $crate::ecs::components::Pos),
-            (vel, $crate::ecs::components::Vel),
             (follow, $crate::ecs::components::Follow),
             // FIXME: remove debug flags in prod build
             (debug, $crate::ecs::components::DebugFlags)

@@ -58,7 +58,7 @@ impl Events {
         let now = sdl3::timer::ticks();
 
         let mouse_state = self.pump.mouse_state();
-        self.mouse_pos = ScreenPoint::new(mouse_state.x(), mouse_state.y());
+        self.mouse_pos = ScreenPoint::new(mouse_state.x().into(), mouse_state.y().into());
 
         for event in self.pump.poll_iter() {
             match event {
@@ -71,7 +71,7 @@ impl Events {
                     let idx = mouse_btn as usize;
                     self.mouse_btns[idx].down = false;
                     self.mouse_btns[idx].since = now;
-                    self.mouse_btns[idx].pos = ScreenPoint::new(x, y);
+                    self.mouse_btns[idx].pos = ScreenPoint::new(x.into(), y.into());
                 }
                 Event::MouseButtonDown {
                     x, y, mouse_btn, ..
@@ -79,7 +79,7 @@ impl Events {
                     let idx = mouse_btn as usize;
                     self.mouse_btns[idx].down = true;
                     self.mouse_btns[idx].since = now;
-                    self.mouse_btns[idx].pos = ScreenPoint::new(x, y);
+                    self.mouse_btns[idx].pos = ScreenPoint::new(x.into(), y.into());
                 }
                 Event::KeyUp {
                     keycode, keymod, ..

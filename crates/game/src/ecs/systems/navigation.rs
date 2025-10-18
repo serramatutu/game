@@ -4,17 +4,13 @@ use crate::{Ctx, ecs::Ecs};
 
 /// System to make an entity follow another
 pub mod follow {
-    use engine::coords::WorldVector;
-
     use super::*;
 
     // TODO: follow speed as component?
-    const SPEED_S: f32 = 500.0;
-
-    const NEAR_ENOUGH_M: f32 = 20.0;
+    const SPEED_S: f64 = 500.0;
 
     pub fn update_and_render<'gs>(
-        _ctx: &mut Ctx<'gs, 'gs>,
+        ctx: &mut Ctx<'gs, 'gs>,
         prev: &Ecs,
         next: &mut Ecs,
     ) -> anyhow::Result<()> {
@@ -23,16 +19,22 @@ pub mod follow {
             let target_pos = prev.pos_for_unchecked(follow.target_entity);
 
             let diff = target_pos - follower_pos;
-            let len = diff.length();
+            let distance = diff.length();
 
-            // normalize without dividing by zero
-            if (len - NEAR_ENOUGH_M).abs() > NEAR_ENOUGH_M {
-                let vel = diff.normalize() * SPEED_S;
-                next.set_vel_for(follower_id, vel);
-            } else if follow.stop_after_arriving {
-                next.unset_follow_for(follower_id);
-                next.set_vel_for(follower_id, WorldVector::zero());
-            }
+            let speed_per_frame = SPEED_S * ctx.delta_s;
+
+            // likely to overshoot on the next frame if the distance is less than the travel
+            // distance per frame, so we just snap it to the target
+            let new_pos = if distance < speed_per_frame * 1.5 {
+                if follow.stop_after_arriving {
+                    next.unset_follow_for(follower_id);
+                }
+                target_pos
+            } else {
+                follower_pos + diff.normalize() * speed_per_frame
+            };
+
+            next.set_pos_for(follower_id, new_pos);
         }
         Ok(())
     }
