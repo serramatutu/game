@@ -74,11 +74,13 @@ macro_rules! impl_accessor {
                 entity.$attr = component_id;
             }
 
+            #[allow(dead_code)]
             pub fn [<$attr _for>](&self, entity_id: usize) -> Option<$type> {
                 let attr_idx = self.entities[entity_id].$attr;
                 Self::get_component(&self.components.$attr, attr_idx)
             }
 
+            #[allow(dead_code)]
             pub fn [<$attr _for_unchecked>](&self, entity_id: usize) -> $type {
                 let attr_idx = self.entities[entity_id].$attr;
                 debug_assert!(attr_idx != SENTINEL, concat!("Tried to get '",stringify!($attr),"' attribute from entity that does not contain it."));
@@ -86,17 +88,20 @@ macro_rules! impl_accessor {
                 component
             }
 
+            #[allow(dead_code)]
             pub fn [<$attr _for_mut>](&mut self, entity_id: usize) -> Option<&mut $type> {
                 let attr_idx = self.entities[entity_id].$attr;
                 Self::get_component_mut(&mut self.components.$attr, attr_idx)
             }
 
+            #[allow(dead_code)]
             pub fn [<set_ $attr _for>](&mut self, entity_id: usize, val: $type) {
                 let attr_idx = self.entities[entity_id].$attr;
                 debug_assert!(attr_idx != SENTINEL, concat!("Tried to set '",stringify!($attr),"' in entity that does not contain it."));
                 self.components.$attr[attr_idx].1 = val;
             }
 
+            #[allow(dead_code)]
             pub fn [<unset_ $attr _for>](&mut self, entity_id: usize) -> $type {
                 let attr_idx = {
                     let entity = &mut self.entities[entity_id];
@@ -119,6 +124,7 @@ macro_rules! impl_accessor {
                 removed
             }
 
+            #[allow(dead_code)]
             pub fn [<overwrite_ $attr _for>](&mut self, entity_id: usize, val: $type) {
                 let attr_idx = self.entities[entity_id].$attr;
                 match attr_idx {
@@ -131,6 +137,7 @@ macro_rules! impl_accessor {
                 }
             }
 
+            #[allow(dead_code)]
             pub fn [<$attr _iter>](&self) -> impl Iterator<Item = &(usize, $type)> {
                 // skip the sentinel
                 self.components.$attr.iter().skip(1)
@@ -168,12 +175,14 @@ macro_rules! impl_entity_spawner {
             $(
                 paste! {
                     #[doc= concat!("Add the default", stringify!($attr) , " value to the spawned entity")]
+                    #[allow(dead_code)]
                     pub fn [<with_ $attr _default>](mut self) -> Self {
                         self.$attr = Some(Default::default());
                         self
                     }
 
                     #[doc= concat!("Add ", stringify!($attr) , " to the spawned entity")]
+                    #[allow(dead_code)]
                     pub fn [<with_ $attr>](mut self, value: $type) -> Self {
                         self.$attr = Some(value);
                         self
