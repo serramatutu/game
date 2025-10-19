@@ -82,9 +82,9 @@ impl Events {
                     self.mouse_btns[idx].pos = ScreenPoint::new(x.into(), y.into());
                 }
                 Event::KeyUp {
-                    keycode, keymod, ..
+                    scancode, keymod, ..
                 } => {
-                    let Some(key) = keycode else {
+                    let Some(key) = scancode else {
                         sdl3::log::log_warn(sdl3::log::Category::Input, "received unknown key");
                         continue;
                     };
@@ -95,9 +95,9 @@ impl Events {
                     self.keys[idx].mods = keymod;
                 }
                 Event::KeyDown {
-                    keycode, keymod, ..
+                    scancode, keymod, ..
                 } => {
-                    let Some(key) = keycode else {
+                    let Some(key) = scancode else {
                         sdl3::log::log_warn(sdl3::log::Category::Input, "received unknown key");
                         continue;
                     };
