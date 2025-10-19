@@ -11,6 +11,7 @@ engine = { path = "../engine" }
 
 allocator-api2 = { workspace = true }
 anyhow = { workspace = true }
+derivative = { workspace = true }
 heapless = { workspace = true }
 sdl3 = { workspace = true }
 paste = { workspace = true }

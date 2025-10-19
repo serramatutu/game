@@ -1,5 +1,6 @@
 use crate::{Ctx, with_components};
 use anyhow::Result;
+use derivative::Derivative;
 use engine::types::Reset;
 use heapless::Vec;
 use paste::paste;
@@ -33,7 +34,8 @@ const SYSTEMS: [SystemFn; 3] = [
 /// - The zero index of each component list is a dummy that is initialized with
 ///   default and should not belong to any entity.
 /// - The zero index entity is a null entity that is never in the world.
-#[derive(Clone, Debug)]
+#[derive(Derivative, Debug)]
+#[derivative(Clone(clone_from = "true"))]
 pub struct Ecs<'res> {
     components: components::Components<'res>,
     entities: Vec<Entity, MAX_ENTITIES>,
@@ -72,7 +74,7 @@ impl<'res> Ecs<'res> {
 impl<'res> Reset for Ecs<'res> {
     fn reset(&mut self) {
         self.components.reset();
-        self.entities.clear();
+        self.entities.resize(1, Default::default()).unwrap();
     }
 }
 
@@ -82,12 +84,16 @@ macro_rules! impl_accessor_copy {
         paste! {
             #[allow(dead_code)]
             pub fn [<$attr _for>](&self, entity_id: usize) -> Option<$type> {
+                debug_assert!(entity_id != SENTINEL);
+
                 let attr_idx = self.entities[entity_id].$attr;
                 Self::get_component(&self.components.$attr, attr_idx)
             }
 
             #[allow(dead_code)]
             pub fn [<$attr _for_unchecked>](&self, entity_id: usize) -> $type {
+                debug_assert!(entity_id != SENTINEL);
+
                 let attr_idx = self.entities[entity_id].$attr;
                 debug_assert!(attr_idx != SENTINEL, concat!("Tried to get '",stringify!($attr),"' attribute from entity that does not contain it."));
                 self.components.$attr[attr_idx].1
@@ -100,12 +106,16 @@ macro_rules! impl_accessor_copy {
         paste! {
             #[allow(dead_code)]
             pub fn [<$attr _for>](&self, entity_id: usize) -> Option<&$type> {
+                debug_assert!(entity_id != SENTINEL);
+
                 let attr_idx = self.entities[entity_id].$attr;
                 Self::get_component_ref(&self.components.$attr, attr_idx)
             }
 
             #[allow(dead_code)]
             pub fn [<$attr _for_unchecked>](&self, entity_id: usize) -> &$type {
+                debug_assert!(entity_id != SENTINEL);
+
                 let attr_idx = self.entities[entity_id].$attr;
                 debug_assert!(attr_idx != SENTINEL, concat!("Tried to get '",stringify!($attr),"' attribute from entity that does not contain it."));
                 &self.components.$attr[attr_idx].1
@@ -119,6 +129,8 @@ macro_rules! impl_accessor {
     ($attr:ident, $type:ty, $cheap_copy:tt) => {
         paste! {
             fn [<push_ $attr _unchecked>](components: &mut Vec<(usize, $type), MAX_ENTITIES>, entity_id: usize, entity: &mut Entity, value: $type) {
+                debug_assert!(entity_id != SENTINEL);
+
                 let component_id = components.len();
                 components.push((entity_id, value)).expect("Too many components. This is a definitely a bug.");
                 entity.$attr = component_id;
@@ -126,12 +138,16 @@ macro_rules! impl_accessor {
 
             #[allow(dead_code)]
             pub fn [<$attr _for_mut>](&mut self, entity_id: usize) -> Option<&mut $type> {
+                debug_assert!(entity_id != SENTINEL);
+
                 let attr_idx = self.entities[entity_id].$attr;
                 Self::get_component_mut(&mut self.components.$attr, attr_idx)
             }
 
             #[allow(dead_code)]
             pub fn [<$attr _for_mut_unchecked>](&mut self, entity_id: usize) -> &mut $type {
+                debug_assert!(entity_id != SENTINEL);
+
                 let attr_idx = self.entities[entity_id].$attr;
                 debug_assert!(attr_idx != SENTINEL, concat!("Tried to get mut '",stringify!($attr),"' in entity that does not contain it."));
                 &mut self.components.$attr[attr_idx].1
@@ -139,6 +155,8 @@ macro_rules! impl_accessor {
 
             #[allow(dead_code)]
             pub fn [<set_ $attr _for>](&mut self, entity_id: usize, val: $type) {
+                debug_assert!(entity_id != SENTINEL);
+
                 let attr_idx = self.entities[entity_id].$attr;
                 debug_assert!(attr_idx != SENTINEL, concat!("Tried to set '",stringify!($attr),"' in entity that does not contain it."));
                 self.components.$attr[attr_idx].1 = val;
@@ -146,6 +164,8 @@ macro_rules! impl_accessor {
 
             #[allow(dead_code)]
             pub fn [<unset_ $attr _for>](&mut self, entity_id: usize) -> $type {
+                debug_assert!(entity_id != SENTINEL);
+
                 let attr_idx = {
                     let entity = &mut self.entities[entity_id];
                     let attr_idx = entity.$attr;
@@ -169,6 +189,8 @@ macro_rules! impl_accessor {
 
             #[allow(dead_code)]
             pub fn [<overwrite_ $attr _for>](&mut self, entity_id: usize, val: $type) {
+                debug_assert!(entity_id != SENTINEL);
+
                 let attr_idx = self.entities[entity_id].$attr;
                 match attr_idx {
                     SENTINEL => {

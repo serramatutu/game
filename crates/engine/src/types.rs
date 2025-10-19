@@ -50,3 +50,9 @@ impl<T> Default for Id<T> {
         Self(Default::default(), PhantomData)
     }
 }
+
+/// A struct that can reset its own state without reallocating
+/// or needing a stack assign
+pub trait Reset {
+    fn reset(&mut self);
+}

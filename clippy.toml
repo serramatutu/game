@@ -1,4 +1,5 @@
 disallowed-methods = [
+    { path = "allocator_api2::boxed::Box::new", reason = "Must use explicit allocator" },
     { path = "allocator_api2::vec::Vec::new", reason = "Must use explicit allocator" },
     { path = "std::vec::Vec::with_capacity", reason = "Must use explicit allocator" },
 
@@ -7,6 +8,7 @@ disallowed-methods = [
 ]
 
 disallowed-types = [
+    { path = "std::boxed::Box", reason = "Use allocator_api2::boxed::Box or heapless::Box instead" },
     { path = "std::vec::Vec", reason = "Use allocator_api2::vec::Vec or heapless::Vec instead" },
     { path = "std::collections::HashMap", reason = "Use hashbrown::HashMap instead" },
     { path = "std::collections::HashSet", reason = "Use hashbrown::HashSet instead" }

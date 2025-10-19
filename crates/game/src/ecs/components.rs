@@ -1,3 +1,4 @@
+use derivative::Derivative;
 use engine::{
     animation::AnimationCursor,
     coords::WorldPoint,
@@ -83,7 +84,8 @@ macro_rules! impl_components {
         ///
         /// The 0th value of every vec is a sentinel value that should not
         /// be used
-        #[derive(Clone, Debug)]
+        #[derive(Derivative, Debug)]
+        #[derivative(Clone(clone_from="true"))]
         pub struct Components<'res> {
             $(
                 pub $attr: Vec<(usize, $type), MAX_ENTITIES>,

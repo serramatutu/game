@@ -116,7 +116,7 @@ pub fn main() -> Result<()> {
         resources: &mut resources,
     };
 
-    let game_state = game.as_ref().unwrap().init(&mut init_params)?;
+    let game_memory = game.as_ref().unwrap().init(&mut init_params)?;
 
     let mut exit = false;
     let mut prev_now_ms: u64 = 0;
@@ -155,7 +155,7 @@ pub fn main() -> Result<()> {
                 delta_ms,
                 screen_w: WINDOW_WIDTH,
                 screen_h: WINDOW_HEIGHT,
-                state: game_state,
+                memory: game_memory,
             };
             res = game.as_ref().unwrap().update_and_render(&mut params);
         })?;
@@ -169,11 +169,11 @@ pub fn main() -> Result<()> {
     }
 
     // TODO: drop gracefully even when in case of error (errdefer)
-    // NOTE: from here onwards game_state is dangling
+    // NOTE: from here onwards game_memory is dangling
     if let Some(game) = &game {
         game.drop(DropParams {
             allocator: GlobalAllocator,
-            state: game_state,
+            memory: game_memory,
         });
     }
 

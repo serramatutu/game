@@ -1,4 +1,5 @@
 use allocator_api2::alloc::{Allocator, Global as GlobalAllocator};
+use derivative::Derivative;
 use engine::{
     camera::Camera,
     resources::{Resources, sprite_map::SpriteMap},
@@ -9,31 +10,37 @@ use sdl3::render::WindowCanvas;
 use crate::ecs::Ecs;
 
 /// The map of known resource IDs
-#[derive(Clone)]
 pub(crate) struct ResourceIds<'res> {
     pub zorb_sprite: Id<SpriteMap<'res>>,
 }
 
-/// The state that gets persisted between calls of `update_and_render`
-#[derive(Clone)]
-pub(crate) struct State<'gamestatic> {
-    // Object and resource management
-    pub resource_ids: ResourceIds<'gamestatic>,
-
+/// The alternating state between `update_and_render` calls
+#[derive(Derivative)]
+#[derivative(Clone(clone_from = "true"))]
+pub(crate) struct State<'res> {
     // World objects
-    pub ecs: Ecs,
+    pub ecs: Ecs<'res>,
     pub zorb: usize,
+}
+
+/// The global memory block that is used by the game
+pub(crate) struct MemoryPool<'res> {
+    // Object and resource management
+    pub resource_ids: ResourceIds<'res>,
+
+    pub prev: State<'res>,
+    pub next: State<'res>,
 }
 
 /// A context object that can be passed around throughout the game
 #[expect(dead_code)]
-pub(crate) struct Ctx<'gamestatic, 'caller, A: Allocator = GlobalAllocator> {
+pub(crate) struct Ctx<'gs, A: Allocator = GlobalAllocator> {
     pub allocator: A,
-    pub canvas: &'gamestatic mut WindowCanvas,
-    pub camera: &'gamestatic mut Camera,
+    pub canvas: &'gs mut WindowCanvas,
+    pub camera: &'gs mut Camera,
 
-    pub resources: &'caller Resources<'gamestatic>,
-    pub resource_ids: &'caller ResourceIds<'gamestatic>,
+    pub resources: &'gs Resources<'gs>,
+    pub resource_ids: &'gs ResourceIds<'gs>,
 
     pub now_ms: u64,
     pub delta_ms: u64,

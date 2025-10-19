@@ -21,7 +21,7 @@ where
 pub struct DropParams {
     pub allocator: GlobalAllocator,
     // TODO: resources?
-    pub state: NonNull<[u8]>,
+    pub memory: NonNull<[u8]>,
 }
 
 pub struct UpdateAndRenderParams<'eng, 'res>
@@ -41,5 +41,5 @@ where
     pub screen_w: u16,
     pub screen_h: u16,
 
-    pub state: NonNull<[u8]>,
+    pub memory: NonNull<[u8]>,
 }
