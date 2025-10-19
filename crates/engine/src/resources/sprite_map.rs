@@ -9,7 +9,10 @@ use sdl3::image::LoadTexture;
 use sdl3::render::{FRect, ScaleMode, Texture, TextureCreator};
 use serde::Deserialize;
 
-use crate::animation::{Animation, AnimationCursor, Keyframe};
+use crate::{
+    animation::{Animation, AnimationCursor, Keyframe},
+    types::Id,
+};
 
 use super::manager::{ResourceError, ResourceLoader, ResourceManager};
 
@@ -230,37 +233,52 @@ impl SpriteMapCel {
 
 // Holds many sprites in one single image. Each frame can be indexed from this map.
 pub struct SpriteMap<'tex> {
+    id: Id<SpriteMap<'tex>>,
     pub tex: Texture<'tex>,
     pub cels: Vec<SpriteMapCel>,
-    pub animations: HashMap<String, SpriteMapAnimation>,
+
+    names: HashMap<String, Id<SpriteMapAnimation>>,
+    animations: Vec<SpriteMapAnimation>,
 }
 
 impl<'tex> SpriteMap<'tex> {
-    /// Get an animation by name or panic
-    pub fn get_animation(&self, name: &str) -> &SpriteMapAnimation {
-        self.animations
-            .get(name)
-            .unwrap_or_else(|| panic!("Invalid animation '{name}'"))
+    /// Get an animation's ID by its name or panic
+    pub fn get_animation_id(&self, anim_name: &str) -> Id<SpriteMapAnimation> {
+        *self
+            .names
+            .get(anim_name)
+            .unwrap_or_else(|| panic!("Invalid animation '{anim_name}'"))
+    }
+
+    /// Get an animation by ID or panic
+    pub fn get_animation(&self, id: Id<SpriteMapAnimation>) -> &SpriteMapAnimation {
+        debug_assert!(id.hi() == self.id.full() as u16);
+        &self.animations[id.0 as usize]
     }
 }
 
 /// Loads a `SpriteMap` from a PNG and a JSON file
-pub struct SpriteMapLoader<T, A: Allocator = GlobalAllocator> {
+pub struct SpriteMapLoader<'res, T, A: Allocator = GlobalAllocator> {
     allocator: A,
     sdl_loader: TextureCreator<T>,
+    next_id: Id<SpriteMap<'res>>,
 }
 
-impl<T, A: Allocator> SpriteMapLoader<T, A> {
-    pub fn new(allocator: A, sdl_loader: TextureCreator<T>) -> SpriteMapLoader<T, A> {
+impl<'res, T, A: Allocator> SpriteMapLoader<'res, T, A> {
+    pub fn new(allocator: A, sdl_loader: TextureCreator<T>) -> SpriteMapLoader<'res, T, A> {
         Self {
             allocator,
             sdl_loader,
+            next_id: Id::<SpriteMap>::new(0),
         }
     }
 }
 
-impl<'l, T> ResourceLoader<'l, SpriteMap<'l>> for SpriteMapLoader<T> {
-    fn load(&'l self, full_path: &Path) -> Result<SpriteMap<'l>, super::manager::ResourceError> {
+impl<'l, T> ResourceLoader<'l, SpriteMap<'l>> for SpriteMapLoader<'l, T> {
+    fn load(
+        &'l mut self,
+        full_path: &Path,
+    ) -> Result<SpriteMap<'l>, super::manager::ResourceError> {
         let tex_path = full_path.with_extension("png");
         let meta_path = full_path.with_extension("json");
 
@@ -311,6 +329,7 @@ impl<'l, T> ResourceLoader<'l, SpriteMap<'l>> for SpriteMapLoader<T> {
         tex.set_scale_mode(ScaleMode::Nearest);
 
         let sm = SpriteMap {
+            id: self.next_id,
             tex,
             cels: metadata
                 .cels
@@ -319,18 +338,30 @@ impl<'l, T> ResourceLoader<'l, SpriteMap<'l>> for SpriteMapLoader<T> {
                     SpriteMapCel::new(layer.sprite_tex_rect.to_sdl(), layer.source_rect.to_sdl())
                 })
                 .collect(),
+            names: metadata
+                .meta
+                .animations
+                .iter()
+                .enumerate()
+                .map(|(anim_id, ft)| {
+                    (
+                        ft.name.to_owned(),
+                        Id::<SpriteMapAnimation>::new_split(
+                            self.next_id.full() as u16,
+                            anim_id as u16,
+                        ),
+                    )
+                })
+                .collect(),
             animations: metadata
                 .meta
                 .animations
                 .iter()
-                .map(|ft| {
-                    (
-                        ft.name.to_owned(),
-                        SpriteMapAnimation::from_aseprite(self.allocator, ft, &metadata.cels),
-                    )
-                })
+                .map(|ft| SpriteMapAnimation::from_aseprite(self.allocator, ft, &metadata.cels))
                 .collect(),
         };
+
+        self.next_id = self.next_id.next();
 
         Ok(sm)
     }
@@ -338,4 +369,4 @@ impl<'l, T> ResourceLoader<'l, SpriteMap<'l>> for SpriteMapLoader<T> {
 
 /// A resource manager for `SpriteMap`
 pub type SpriteMapManager<'tex, T, A = GlobalAllocator> =
-    ResourceManager<SpriteMap<'tex>, SpriteMapLoader<T>, A>;
+    ResourceManager<SpriteMap<'tex>, SpriteMapLoader<'tex, T>, A>;

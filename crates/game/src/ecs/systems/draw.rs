@@ -16,9 +16,9 @@ pub fn update_and_render<'gs>(
         let next_anims = next.sprite_anims_for_mut_unchecked(entity_id);
 
         for (prev_anim, next_anim) in prev_anims.iter().zip(next_anims) {
-            let sprite = ctx.resources.sprites.get(prev_anim.sprite_id);
+            let sprite = ctx.resources.sprites.get(prev_anim.sprite);
             // FIXME: u64 animation IDs
-            let anim = sprite.get_animation("body:idle");
+            let anim = sprite.get_animation(prev_anim.anim);
             let layer_cels = anim.update_cursor_loop(&mut next_anim.cursor, ctx.now_ms);
 
             for cel_i in layer_cels.iter() {

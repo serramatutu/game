@@ -12,6 +12,22 @@ impl<T> Id<T> {
         Self(val, PhantomData)
     }
 
+    pub fn new_split(hi: u16, lo: u16) -> Self {
+        Self::new(((hi as u32) << 16) | (lo as u32))
+    }
+
+    pub fn full(&self) -> u32 {
+        self.0
+    }
+
+    pub fn hi(&self) -> u16 {
+        (self.0 >> 16) as u16
+    }
+
+    pub fn lo(&self) -> u16 {
+        (self.0 & 0xFFFF) as u16
+    }
+
     pub fn next(&self) -> Self {
         Self(self.0 + 1, PhantomData)
     }
@@ -55,4 +71,20 @@ impl<T> Default for Id<T> {
 /// or needing a stack assign
 pub trait Reset {
     fn reset(&mut self);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_id_hi_lo() {
+        let hi = 1234;
+        let lo = 4321;
+
+        let id = Id::<u32>::new_split(hi, lo);
+
+        assert_eq!(id.hi(), hi);
+        assert_eq!(id.lo(), lo);
+    }
 }

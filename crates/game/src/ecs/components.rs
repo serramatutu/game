@@ -2,7 +2,7 @@ use derivative::Derivative;
 use engine::{
     animation::AnimationCursor,
     coords::WorldPoint,
-    resources::sprite_map::SpriteMap,
+    resources::sprite_map::{SpriteMap, SpriteMapAnimation},
     types::{Id, Reset},
 };
 use heapless::Vec;
@@ -16,14 +16,16 @@ pub const MAX_ANIM_PER_ENTITY: usize = 4;
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct SpriteAnim<'res> {
-    pub sprite_id: Id<SpriteMap<'res>>,
+    pub sprite: Id<SpriteMap<'res>>,
+    pub anim: Id<SpriteMapAnimation>,
     pub cursor: AnimationCursor,
 }
 
 impl<'res> SpriteAnim<'res> {
-    pub fn from_sprite(id: Id<SpriteMap<'res>>) -> Self {
+    pub fn from_sprite(sprite: Id<SpriteMap<'res>>, anim: Id<SpriteMapAnimation>) -> Self {
         Self {
-            sprite_id: id,
+            sprite,
+            anim,
             ..Default::default()
         }
     }

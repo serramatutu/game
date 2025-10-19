@@ -32,7 +32,8 @@ pub fn init<'gs>(params: &'gs mut InitParams<'gs, 'gs>) -> Result<NonNull<[u8]>>
     // with zeros
     pool.prev.ecs.reset();
     pool.next.ecs.reset();
-    pool.resource_ids.zorb_sprite = params.resources.load_sprite_map("zorb")?;
+
+    pool.resource_ids.zorb = Some(spawnables::zorb::load_resources(params.resources)?);
 
     Ok(ptr)
 }
@@ -60,7 +61,7 @@ pub fn update_and_render<'gs>(params: &'gs mut UpdateAndRenderParams<'gs, 'gs>) 
         delta_s: params.delta_ms as f64 / 1000.0,
         now_ms: params.now_ms,
         resources: params.resources,
-        resource_ids: &pool.resource_ids,
+        resource_ids: &mut pool.resource_ids,
         screen_w: params.screen_w,
         screen_h: params.screen_h,
     };

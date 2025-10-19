@@ -13,7 +13,7 @@ pub enum ResourceError {
 
 /// Loads a resource of type `Res`
 pub trait ResourceLoader<'l, Res> {
-    fn load(&'l self, key: &Path) -> Result<Res, ResourceError>
+    fn load(&'l mut self, key: &Path) -> Result<Res, ResourceError>
     where
         Res: 'l;
 }
@@ -38,7 +38,7 @@ where
         }
     }
 
-    /// Load a resource into the cache so that subsquent calls to `get()`
+    /// Load a resource into the cache so that subsquent calls to `get()` don't fail
     pub fn load(&'l mut self, key: &Path) -> Result<Id<Res>, ResourceError>
     where
         Load: ResourceLoader<'l, Res>,
@@ -47,9 +47,25 @@ where
 
         let id = self.next_id;
         self.next_id = id.next();
-        self.cache.insert(id, loaded);
+        let existing = self.cache.insert(id, loaded);
+        debug_assert!(existing.is_none(), "Double resource load");
 
         Ok(id)
+    }
+
+    /// Load a resource into the cache and get a ref to it
+    pub fn load_get(&'l mut self, key: &Path) -> Result<(Id<Res>, &'l Res), ResourceError>
+    where
+        Load: ResourceLoader<'l, Res>,
+    {
+        let loaded = self.loader.load(key)?;
+
+        let id = self.next_id;
+        self.next_id = id.next();
+        debug_assert!(!self.cache.contains_key(&id), "Double resource load");
+        let entry = self.cache.entry(id).or_insert(loaded);
+
+        Ok((id, entry))
     }
 
     /// Get a resource that was already preloaded otherwise panic

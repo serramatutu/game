@@ -23,4 +23,12 @@ impl<'res> Resources<'res> {
         let full_name = self.root.join(name);
         self.sprites.load(&full_name)
     }
+
+    pub fn load_get_sprite_map<'s>(
+        &'res mut self,
+        name: &str,
+    ) -> Result<(Id<SpriteMap<'res>>, &'s SpriteMap<'res>), ResourceError> {
+        let full_name = self.root.join(name);
+        self.sprites.load_get(&full_name)
+    }
 }
