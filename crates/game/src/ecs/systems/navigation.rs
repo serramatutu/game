@@ -10,7 +10,7 @@ pub mod follow {
     const SPEED_S: f64 = 500.0;
 
     pub fn update_and_render<'gs>(
-        ctx: &mut Ctx<'gs, 'gs>,
+        ctx: &mut Ctx<'gs>,
         prev: &Ecs,
         next: &mut Ecs,
     ) -> anyhow::Result<()> {

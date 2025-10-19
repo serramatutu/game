@@ -1,10 +1,34 @@
-use engine::coords::WorldPoint;
+use engine::{
+    animation::AnimationCursor,
+    coords::WorldPoint,
+    resources::sprite_map::SpriteMap,
+    types::{Id, Reset},
+};
 use heapless::Vec;
 use sdl3::pixels::Color;
 
 use crate::ecs::MAX_ENTITIES;
 
 pub type Pos = WorldPoint;
+
+pub const MAX_ANIM_PER_ENTITY: usize = 4;
+
+#[derive(Copy, Clone, Default, Debug)]
+pub struct SpriteAnim<'res> {
+    pub sprite_id: Id<SpriteMap<'res>>,
+    pub cursor: AnimationCursor,
+}
+
+impl<'res> SpriteAnim<'res> {
+    pub fn from_sprite(id: Id<SpriteMap<'res>>) -> Self {
+        Self {
+            sprite_id: id,
+            ..Default::default()
+        }
+    }
+}
+
+pub type SpriteAnims<'res> = Vec<SpriteAnim<'res>, MAX_ANIM_PER_ENTITY>;
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct Follow {
@@ -24,23 +48,24 @@ pub struct DebugFlags {
 macro_rules! with_components {
     ($inner_macro:ident) => {
         $inner_macro! {
-            (pos, $crate::ecs::components::Pos),
-            (follow, $crate::ecs::components::Follow),
+            (pos, $crate::ecs::components::Pos, true),
+            (follow, $crate::ecs::components::Follow, true),
             // FIXME: remove debug flags in prod build
-            (debug, $crate::ecs::components::DebugFlags)
+            (debug, $crate::ecs::components::DebugFlags, true),
+            (sprite_anims, $crate::ecs::components::SpriteAnims<'res>, false)
         }
     };
 }
 
 /// Implement the entity struct based on our list of components
 macro_rules! impl_entity {
-    ( $( ($attr:ident, $type:ty) ),+ ) => {
+    ( $( ($attr:ident, $type:ty, $cheap_copy:tt) ),+ ) => {
 
         /// An entity with optionally attached components
         ///
         /// Component index 0 means the entity does not have that component
         /// attached to it.
-        #[derive(Clone, Default, Debug)]
+        #[derive(Copy, Clone, Default, Debug)]
         pub struct Entity {
             $(
                 pub $attr: usize,
@@ -52,20 +77,20 @@ macro_rules! impl_entity {
 
 /// Implement the components struct based on our list of components
 macro_rules! impl_components {
-    ( $( ($attr:ident, $type:ty) ),+ ) => {
+    ( $( ($attr:ident, $type:ty, $cheap_copy:tt) ),+ ) => {
 
         /// Exhaustive list of all possible components of an entity
         ///
         /// The 0th value of every vec is a sentinel value that should not
         /// be used
         #[derive(Clone, Debug)]
-        pub struct Components {
+        pub struct Components<'res> {
             $(
                 pub $attr: Vec<(usize, $type), MAX_ENTITIES>,
             )*
         }
 
-        impl Components {
+        impl<'res> Components<'res> {
             pub fn new() -> Self {
                 Self {
                     $(
@@ -75,6 +100,13 @@ macro_rules! impl_components {
             }
         }
 
+        impl<'res> Reset for Components<'res> {
+            fn reset(&mut self) {
+                $(
+                    self.$attr.resize(1, Default::default()).unwrap();
+                )*
+            }
+        }
     };
 }
 
@@ -90,7 +122,7 @@ with_components!(impl_entity);
 
 with_components!(impl_components);
 
-impl Default for Components {
+impl<'res> Default for Components<'res> {
     fn default() -> Self {
         Components::new()
     }

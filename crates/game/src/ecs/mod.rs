@@ -1,5 +1,6 @@
 use crate::{Ctx, with_components};
 use anyhow::Result;
+use engine::types::Reset;
 use heapless::Vec;
 use paste::paste;
 use std::iter::Iterator;
@@ -19,8 +20,9 @@ const MAX_ENTITIES: usize = 8192;
 /// All the registered ECS systems
 ///
 /// They execute in order from top to bottom
-const SYSTEMS: [SystemFn; 2] = [
+const SYSTEMS: [SystemFn; 3] = [
     systems::navigation::follow::update_and_render,
+    systems::draw::update_and_render,
     #[cfg(debug_assertions)]
     systems::debug::draw::update_and_render,
 ];
@@ -31,13 +33,13 @@ const SYSTEMS: [SystemFn; 2] = [
 /// - The zero index of each component list is a dummy that is initialized with
 ///   default and should not belong to any entity.
 /// - The zero index entity is a null entity that is never in the world.
-#[derive(Clone, Default, Debug)]
-pub struct Ecs {
-    components: components::Components,
+#[derive(Clone, Debug)]
+pub struct Ecs<'res> {
+    components: components::Components<'res>,
     entities: Vec<Entity, MAX_ENTITIES>,
 }
 
-impl Ecs {
+impl<'res> Ecs<'res> {
     fn get_component<T: Copy>(components: &[(usize, T)], idx: usize) -> Option<T> {
         match idx {
             SENTINEL => None,
@@ -45,18 +47,21 @@ impl Ecs {
         }
     }
 
-    fn get_component_mut<T: Copy>(components: &mut [(usize, T)], idx: usize) -> Option<&mut T> {
+    fn get_component_ref<T>(components: &[(usize, T)], idx: usize) -> Option<&T> {
+        match idx {
+            SENTINEL => None,
+            _ => Some(&components[idx].1),
+        }
+    }
+
+    fn get_component_mut<T>(components: &mut [(usize, T)], idx: usize) -> Option<&mut T> {
         match idx {
             SENTINEL => None,
             _ => Some(&mut components[idx].1),
         }
     }
 
-    pub fn update_and_render<'gamestatic>(
-        &mut self,
-        ctx: &mut Ctx<'gamestatic, 'gamestatic>,
-        prev: &Ecs,
-    ) -> Result<()> {
+    pub fn update_and_render<'gs>(&mut self, ctx: &mut Ctx<'gs>, prev: &Ecs) -> Result<()> {
         for sys in SYSTEMS {
             sys(ctx, prev, self)?;
         }
@@ -64,16 +69,17 @@ impl Ecs {
     }
 }
 
-/// Helper to create a getter for a component type in the `Ecs` struct
-macro_rules! impl_accessor {
-    ($attr:ident, $type:ty) => {
-        paste! {
-            fn [<push_ $attr _unchecked>](components: &mut Vec<(usize, $type), MAX_ENTITIES>, entity_id: usize, entity: &mut Entity, value: $type) {
-                let component_id = components.len();
-                components.push((entity_id, value)).expect("Too many components. This is a definitely a bug.");
-                entity.$attr = component_id;
-            }
+impl<'res> Reset for Ecs<'res> {
+    fn reset(&mut self) {
+        self.components.reset();
+        self.entities.clear();
+    }
+}
 
+macro_rules! impl_accessor_copy {
+    // cheap_copy
+    ($attr:ident, $type:ty, true) => {
+        paste! {
             #[allow(dead_code)]
             pub fn [<$attr _for>](&self, entity_id: usize) -> Option<$type> {
                 let attr_idx = self.entities[entity_id].$attr;
@@ -84,14 +90,51 @@ macro_rules! impl_accessor {
             pub fn [<$attr _for_unchecked>](&self, entity_id: usize) -> $type {
                 let attr_idx = self.entities[entity_id].$attr;
                 debug_assert!(attr_idx != SENTINEL, concat!("Tried to get '",stringify!($attr),"' attribute from entity that does not contain it."));
-                let (_entity_id, component) = self.components.$attr[attr_idx];
-                component
+                self.components.$attr[attr_idx].1
+            }
+        }
+    };
+
+    // expensive copy
+    ($attr:ident, $type:ty, false) => {
+        paste! {
+            #[allow(dead_code)]
+            pub fn [<$attr _for>](&self, entity_id: usize) -> Option<&$type> {
+                let attr_idx = self.entities[entity_id].$attr;
+                Self::get_component_ref(&self.components.$attr, attr_idx)
+            }
+
+            #[allow(dead_code)]
+            pub fn [<$attr _for_unchecked>](&self, entity_id: usize) -> &$type {
+                let attr_idx = self.entities[entity_id].$attr;
+                debug_assert!(attr_idx != SENTINEL, concat!("Tried to get '",stringify!($attr),"' attribute from entity that does not contain it."));
+                &self.components.$attr[attr_idx].1
+            }
+        }
+    };
+}
+
+/// Helper to create a getter for a component type in the `Ecs` struct
+macro_rules! impl_accessor {
+    ($attr:ident, $type:ty, $cheap_copy:tt) => {
+        paste! {
+            fn [<push_ $attr _unchecked>](components: &mut Vec<(usize, $type), MAX_ENTITIES>, entity_id: usize, entity: &mut Entity, value: $type) {
+                let component_id = components.len();
+                components.push((entity_id, value)).expect("Too many components. This is a definitely a bug.");
+                entity.$attr = component_id;
             }
 
             #[allow(dead_code)]
             pub fn [<$attr _for_mut>](&mut self, entity_id: usize) -> Option<&mut $type> {
                 let attr_idx = self.entities[entity_id].$attr;
                 Self::get_component_mut(&mut self.components.$attr, attr_idx)
+            }
+
+            #[allow(dead_code)]
+            pub fn [<$attr _for_mut_unchecked>](&mut self, entity_id: usize) -> &mut $type {
+                let attr_idx = self.entities[entity_id].$attr;
+                debug_assert!(attr_idx != SENTINEL, concat!("Tried to get mut '",stringify!($attr),"' in entity that does not contain it."));
+                &mut self.components.$attr[attr_idx].1
             }
 
             #[allow(dead_code)]
@@ -148,30 +191,31 @@ macro_rules! impl_accessor {
 
 /// Implement all accesssors for all the component types
 macro_rules! impl_accessors {
-    ( $( ($attr:ident, $type:ty) ),+ ) => {
+    ( $( ($attr:ident, $type:ty, $cheap_copy:tt) ),+ ) => {
         $(
-            impl_accessor!($attr, $type);
+            impl_accessor_copy!($attr, $type, $cheap_copy);
+            impl_accessor!($attr, $type, $cheap_copy);
         )*
     }
 }
 
-impl Ecs {
+impl<'res> Ecs<'res> {
     with_components!(impl_accessors);
 }
 
 /// Impleent the entity spawner with all possible components
 macro_rules! impl_entity_spawner {
-    ( $( ($attr:ident, $type:ty) ),+ ) => {
+    ( $( ($attr:ident, $type:ty, $cheap_copy:tt) ),+ ) => {
 
         /// Constructs an entity by adding components to it
         #[derive(Default)]
-        pub struct EntitySpawner {
+        pub struct EntitySpawner<'res> {
             $(
                 $attr: Option<$type>,
             )*
         }
 
-        impl EntitySpawner {
+        impl<'res> EntitySpawner<'res> {
             $(
                 paste! {
                     #[doc= concat!("Add the default", stringify!($attr) , " value to the spawned entity")]
@@ -195,7 +239,7 @@ macro_rules! impl_entity_spawner {
             }
 
             /// Spawn the entity into the ECS world
-            pub fn spawn(&self, ecs: &mut Ecs) -> usize {
+            pub fn spawn(self, ecs: &mut Ecs<'res>) -> usize {
                 let entity_id = ecs.entities.len();
                 // FIXME: what to do when there are too many entities that get spawned? Fail
                 // silently?

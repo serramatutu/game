@@ -9,7 +9,7 @@ pub mod draw {
     use super::*;
 
     pub fn update_and_render<'gs>(
-        ctx: &mut Ctx<'gs, 'gs>,
+        ctx: &mut Ctx<'gs>,
         prev: &Ecs,
         _next: &mut Ecs,
     ) -> anyhow::Result<()> {
