@@ -8,7 +8,7 @@ use std::ptr::NonNull;
 
 use allocator_api2::alloc::{Allocator, Layout};
 use anyhow::Result;
-use ecs::components::Follow;
+use ecs::components::{Follow, SpriteAnim, SpriteAnims};
 use ecs::{EntitySpawner, SENTINEL};
 use engine::coords::WorldPoint;
 use engine::hooks::{DropParams, InitParams, UpdateAndRenderParams};
@@ -82,6 +82,20 @@ pub fn update_and_render<'gs>(params: &'gs mut UpdateAndRenderParams<'gs, 'gs>) 
         let follow_entity = EntitySpawner::new()
             .with_pos(follow_pos)
             .spawn(&mut pool.next.ecs);
+
+        pool.next.ecs.overwrite_sprite_anims_for(
+            pool.prev.zorb,
+            SpriteAnims::from_array([
+                SpriteAnim::from_sprite(
+                    ctx.resource_ids.zorb.as_ref().unwrap().sprite,
+                    ctx.resource_ids.zorb.as_ref().unwrap().anim_body_walk,
+                ),
+                SpriteAnim::from_sprite(
+                    ctx.resource_ids.zorb.as_ref().unwrap().sprite,
+                    ctx.resource_ids.zorb.as_ref().unwrap().anim_face_cute,
+                ),
+            ]),
+        );
 
         pool.next.ecs.overwrite_follow_for(
             pool.prev.zorb,
