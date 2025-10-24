@@ -40,13 +40,10 @@ _timestamp-game:
 clean-libs:
   rm target/{{target}}/libgame.so.*
 
-res-tex target:
+res target:
   aseprite {{aseprite_args}} --sheet-type packed resources/src/{{target}}.aseprite --sheet resources/obj/{{target}}.png --data resources/obj/{{target}}.ase.json
   cargo xtask ase-to-res {{target}}
   rm resources/obj/{{target}}.ase.json
-
-res-tm target:
-  aseprite {{aseprite_args}} resources/src/{{target}}.aseprite --sheet resources/obj/{{target}}.png --data resources/obj/{{target}}.ase.json
 
 run:
  RUST_BACKTRACE=1 cargo run --package binary

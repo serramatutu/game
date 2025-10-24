@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     animation::{Animation, AnimationCursor, Keyframe},
-    serde::ordered_map,
+    serde::{is_empty, ordered_map},
     types::Id,
 };
 
@@ -19,6 +19,7 @@ use super::manager::{ResourceError, ResourceLoader, ResourceManager};
 
 /// Add this tag to frames that should be skipped
 const TAG_NO_EXPORT: &str = "no-export";
+const TAG_TILESET: &str = "tileset";
 
 /// A rectangle as exported by Aseprite
 #[derive(Serialize, Deserialize, Debug)]
@@ -134,6 +135,20 @@ struct AsepriteLayerTag {
     name: String,
     #[serde(default)]
     cels: Vec<AsepriteLayerTagCel>,
+    #[serde(default)]
+    data: String,
+}
+
+impl AsepriteLayerTag {
+    fn tags(&self) -> HashMap<&str, &str> {
+        self.data
+            .split(",")
+            .map(|v| match v.split_once("=") {
+                Some(v) => v,
+                None => (v, ""),
+            })
+            .collect()
+    }
 }
 
 /// The metadata of an Aseprite export
@@ -256,6 +271,18 @@ impl SpriteMapAnimation {
     }
 }
 
+/// A set of tiles, where each cel has implicit information about how to connect to
+/// its neighbors depending on the position on the grid.
+///
+/// It stores the tile size and the cel where all the subtiles are stored. This cel
+/// must be exactly 12x4 tiles in size, and the tiles must be arranged according to
+/// the mask.
+#[derive(Serialize, Deserialize)]
+pub struct Tileset {
+    grid_size: u8,
+    cel: u16,
+}
+
 /// A single rectangle that represents the boundaries of a single image
 /// within the spritemap (aka a Cel)
 #[derive(Serialize, Deserialize)]
@@ -279,40 +306,65 @@ impl SpriteMapCel {
 struct SerializedSpriteMap {
     tex_path: String,
     cels: Vec<SpriteMapCel>,
-    #[serde(serialize_with = "ordered_map")]
+    #[serde(
+        default,
+        skip_serializing_if = "is_empty",
+        serialize_with = "ordered_map"
+    )]
     animations: HashMap<String, SpriteMapAnimation>,
+    #[serde(
+        default,
+        skip_serializing_if = "is_empty",
+        serialize_with = "ordered_map"
+    )]
+    tilesets: HashMap<String, Tileset>,
 }
 
 // Holds many sprites in one single image. Each frame can be indexed from this map.
 pub struct SpriteMap<'tex, A: Allocator = GlobalAllocator> {
-    id: Id<SpriteMap<'tex>>,
+    id: Id<SpriteMap<'tex, A>>,
     pub tex: Texture<'tex>,
     pub cels: Vec<SpriteMapCel, A>,
 
     animation_names: HashMap<String, Id<SpriteMapAnimation>, DefaultHashBuilder, A>,
     animations: Vec<SpriteMapAnimation, A>,
+
+    tileset_names: HashMap<String, Id<Tileset>, DefaultHashBuilder, A>,
+    tilesets: Vec<Tileset, A>,
 }
 
 impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
+    #[expect(clippy::type_complexity)]
+    fn sort_names_and_ids<T>(
+        allocator: &A,
+        id: Id<Self>,
+        values: HashMap<String, T>,
+    ) -> (HashMap<String, Id<T>, DefaultHashBuilder, A>, Vec<T, A>) {
+        let mut sorted: Vec<_, A> = Vec::with_capacity_in(values.len(), allocator.clone());
+        sorted.extend(values);
+        sorted.sort_by(|(a_name, _), (b_name, _)| a_name.cmp(b_name));
+
+        let mut names: HashMap<_, _, _, A> = HashMap::new_in(allocator.clone());
+        let mut val_vec: Vec<_, A> = Vec::with_capacity_in(sorted.len(), allocator.clone());
+        for (i, (name, val)) in sorted.into_iter().enumerate() {
+            let anim_id = Id::<T>::new_split(id.full() as u16, i as u16);
+
+            names.insert(name, anim_id);
+            val_vec.push(val);
+        }
+
+        (names, val_vec)
+    }
+
     fn new_in(
         allocator: A,
-        id: Id<SpriteMap<'tex>>,
+        id: Id<Self>,
         tex: Texture<'tex>,
         metadata: SerializedSpriteMap,
     ) -> Self {
-        let mut sorted_animations: Vec<_, A> =
-            Vec::with_capacity_in(metadata.animations.len(), allocator.clone());
-        sorted_animations.extend(metadata.animations);
-        sorted_animations.sort_by(|(a_name, _), (b_name, _)| a_name.cmp(b_name));
-
-        let mut names: HashMap<_, _, _, A> = HashMap::new_in(allocator.clone());
-        let mut animations: Vec<_, A> =
-            Vec::with_capacity_in(sorted_animations.len(), allocator.clone());
-        for (i, (name, animation)) in sorted_animations.into_iter().enumerate() {
-            let anim_id = Id::<SpriteMapAnimation>::new_split(id.full() as u16, i as u16);
-            names.insert(name, anim_id);
-            animations.push(animation);
-        }
+        let (animation_names, animations) =
+            Self::sort_names_and_ids(&allocator, id, metadata.animations);
+        let (tileset_names, tilesets) = Self::sort_names_and_ids(&allocator, id, metadata.tilesets);
 
         let mut cels = Vec::with_capacity_in(metadata.cels.len(), allocator);
         cels.extend(metadata.cels);
@@ -322,7 +374,9 @@ impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
             tex,
             cels,
             animations,
-            animation_names: names,
+            animation_names,
+            tilesets,
+            tileset_names,
         }
     }
 
@@ -392,6 +446,51 @@ pub fn ase_to_res(full_path: &Path) -> Result<(), String> {
         }
     }
 
+    // Find tileset layers
+    let tilesets = {
+        let tileset_layers: Vec<_> = metadata
+            .meta
+            .layers
+            .iter()
+            .filter(|l| l.tags().contains_key(TAG_TILESET))
+            .collect();
+
+        tileset_layers
+            .into_iter()
+            .map(|layer| {
+                let cels: Vec<_> = metadata
+                    .cels
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, cel)| {
+                        let (_, _, cel_layer) = split_cel_name(&cel.name);
+                        cel_layer == layer.name
+                    })
+                    .collect();
+
+                assert_eq!(cels.len(), 1);
+
+                let (cel_i, cel) = cels[0];
+
+                let grid_size = layer
+                    .tags()
+                    .get("tile-size")
+                    .map(|s| s.parse::<u8>().unwrap())
+                    .unwrap();
+
+                assert_eq!(cel.source_rect.w, 12 * grid_size as u16);
+                assert_eq!(cel.source_rect.h, 4 * grid_size as u16);
+
+                let tileset = Tileset {
+                    cel: cel_i as u16,
+                    grid_size,
+                };
+
+                (layer.name.clone(), tileset)
+            })
+            .collect()
+    };
+
     let sm = SerializedSpriteMap {
         tex_path: tex_path.to_str().unwrap().to_owned(),
         cels: metadata
@@ -415,6 +514,7 @@ pub fn ase_to_res(full_path: &Path) -> Result<(), String> {
                 )
             })
             .collect(),
+        tilesets,
     };
 
     let res_str = serde_json::to_string_pretty(&sm).map_err(|err| err.to_string())?;

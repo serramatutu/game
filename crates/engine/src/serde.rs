@@ -14,3 +14,8 @@ where
     let ordered: BTreeMap<_, _> = value.iter().collect();
     ordered.serialize(serializer)
 }
+
+/// For use with serde's [skip_serializing_if] attribute
+pub(crate) fn is_empty<T>(value: impl IntoIterator<Item = T>) -> bool {
+    value.into_iter().next().is_none()
+}
