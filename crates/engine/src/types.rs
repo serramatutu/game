@@ -2,9 +2,12 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
+use serde::{Deserialize, Serialize};
+
 /// An ID tagged with a type for what it indexes.
 ///
 /// This prevents us from accidentally mixing IDs for different things.
+#[derive(Serialize, Deserialize)]
 pub struct Id<T>(pub u32, PhantomData<T>);
 
 impl<T> Id<T> {

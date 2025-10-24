@@ -4,13 +4,14 @@ use allocator_api2::{
     alloc::{Allocator, Global as GlobalAllocator},
     vec::Vec,
 };
-use hashbrown::{HashMap, HashSet};
+use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
 use sdl3::image::LoadTexture;
 use sdl3::render::{FRect, ScaleMode, Texture, TextureCreator};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     animation::{Animation, AnimationCursor, Keyframe},
+    serde::ordered_map,
     types::Id,
 };
 
@@ -20,7 +21,7 @@ use super::manager::{ResourceError, ResourceLoader, ResourceManager};
 const TAG_NO_EXPORT: &str = "no-export";
 
 /// A rectangle as exported by Aseprite
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct AsepriteRect {
     x: u16,
     y: u16,
@@ -28,15 +29,58 @@ struct AsepriteRect {
     h: u16,
 }
 
-impl AsepriteRect {
-    /// Turn this into an SDL `FRect` for rendering
-    fn to_sdl(&self) -> FRect {
-        FRect {
-            x: self.x as f32,
-            y: self.y as f32,
-            w: self.w as f32,
-            h: self.h as f32,
+impl From<&AsepriteRect> for FRect {
+    fn from(value: &AsepriteRect) -> Self {
+        Self {
+            x: value.x as f32,
+            y: value.y as f32,
+            w: value.w as f32,
+            h: value.h as f32,
         }
+    }
+}
+
+impl From<AsepriteRect> for FRect {
+    fn from(value: AsepriteRect) -> Self {
+        Self {
+            x: value.x as f32,
+            y: value.y as f32,
+            w: value.w as f32,
+            h: value.h as f32,
+        }
+    }
+}
+
+impl From<&FRect> for AsepriteRect {
+    fn from(value: &FRect) -> Self {
+        Self {
+            x: value.x as u16,
+            y: value.y as u16,
+            w: value.w as u16,
+            h: value.h as u16,
+        }
+    }
+}
+
+/// For use with serde's [with] attribute in `FRect`
+mod rect_serde {
+    use super::*;
+    use serde::{Deserializer, Serializer};
+
+    pub(crate) fn serialize<S>(value: &FRect, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let ase: AsepriteRect = value.into();
+        ase.serialize(serializer)
+    }
+
+    pub(crate) fn deserialize<'de, D>(deserializer: D) -> Result<FRect, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let ase = AsepriteRect::deserialize(deserializer)?;
+        Ok(ase.into())
     }
 }
 
@@ -111,10 +155,11 @@ struct AsepriteExport {
 }
 
 /// An animation of frames within a sprite map
-#[derive(Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct SpriteMapAnimation {
-    /// Maps layer names to the layer indexes
-    pub layers: HashMap<String, u8>,
+    // /// Maps layer names to the layer indexes
+    // #[serde(serialize_with = "ordered_map")]
+    // pub layers: HashMap<String, u8>,
     /// Each keyframe is a vec where the index is the layer index and the value is the cel index in the spritemap
     pub keyframes: Animation<Vec<u16>>,
 }
@@ -205,23 +250,21 @@ impl SpriteMapAnimation {
             }
         };
 
-        let layer_ids = unique_layers
-            .into_iter()
-            .enumerate()
-            .map(|(i, name)| (name.to_string(), i as u8))
-            .collect();
-
         SpriteMapAnimation {
-            layers: layer_ids,
             keyframes: Animation::new(full_frames),
         }
     }
 }
 
+/// A single rectangle that represents the boundaries of a single image
+/// within the spritemap (aka a Cel)
+#[derive(Serialize, Deserialize)]
 pub struct SpriteMapCel {
     /// The rect where this sprite is positioned in the global texture
+    #[serde(with = "rect_serde")]
     pub tex_rect: FRect,
     /// The rect where this sprite is positioned relative to its source material
+    #[serde(with = "rect_serde")]
     pub src_rect: FRect,
 }
 
@@ -231,21 +274,62 @@ impl SpriteMapCel {
     }
 }
 
-// Holds many sprites in one single image. Each frame can be indexed from this map.
-pub struct SpriteMap<'tex> {
-    id: Id<SpriteMap<'tex>>,
-    pub tex: Texture<'tex>,
-    pub cels: Vec<SpriteMapCel>,
-
-    names: HashMap<String, Id<SpriteMapAnimation>>,
-    animations: Vec<SpriteMapAnimation>,
+#[derive(Serialize, Deserialize)]
+#[serde(rename = "sprite_map", tag = "type")]
+struct SerializedSpriteMap {
+    tex_path: String,
+    cels: Vec<SpriteMapCel>,
+    #[serde(serialize_with = "ordered_map")]
+    animations: HashMap<String, SpriteMapAnimation>,
 }
 
-impl<'tex> SpriteMap<'tex> {
+// Holds many sprites in one single image. Each frame can be indexed from this map.
+pub struct SpriteMap<'tex, A: Allocator = GlobalAllocator> {
+    id: Id<SpriteMap<'tex>>,
+    pub tex: Texture<'tex>,
+    pub cels: Vec<SpriteMapCel, A>,
+
+    animation_names: HashMap<String, Id<SpriteMapAnimation>, DefaultHashBuilder, A>,
+    animations: Vec<SpriteMapAnimation, A>,
+}
+
+impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
+    fn new_in(
+        allocator: A,
+        id: Id<SpriteMap<'tex>>,
+        tex: Texture<'tex>,
+        metadata: SerializedSpriteMap,
+    ) -> Self {
+        let mut sorted_animations: Vec<_, A> =
+            Vec::with_capacity_in(metadata.animations.len(), allocator.clone());
+        sorted_animations.extend(metadata.animations);
+        sorted_animations.sort_by(|(a_name, _), (b_name, _)| a_name.cmp(b_name));
+
+        let mut names: HashMap<_, _, _, A> = HashMap::new_in(allocator.clone());
+        let mut animations: Vec<_, A> =
+            Vec::with_capacity_in(sorted_animations.len(), allocator.clone());
+        for (i, (name, animation)) in sorted_animations.into_iter().enumerate() {
+            let anim_id = Id::<SpriteMapAnimation>::new_split(id.full() as u16, i as u16);
+            names.insert(name, anim_id);
+            animations.push(animation);
+        }
+
+        let mut cels = Vec::with_capacity_in(metadata.cels.len(), allocator);
+        cels.extend(metadata.cels);
+
+        Self {
+            id,
+            tex,
+            cels,
+            animations,
+            animation_names: names,
+        }
+    }
+
     /// Get an animation's ID by its name or panic
     pub fn get_animation_id(&self, anim_name: &str) -> Id<SpriteMapAnimation> {
         *self
-            .names
+            .animation_names
             .get(anim_name)
             .unwrap_or_else(|| panic!("Invalid animation '{anim_name}'"))
     }
@@ -255,6 +339,88 @@ impl<'tex> SpriteMap<'tex> {
         debug_assert!(id.hi() == self.id.full() as u16);
         &self.animations[id.0 as usize]
     }
+}
+
+/// Convert a `.ase.json` file that gets exported from Aseprite into a `.res.json` file
+/// that can be loaded by the game engine.
+///
+#[expect(clippy::disallowed_methods)]
+/// This allocates memory.
+pub fn ase_to_res(full_path: &Path) -> Result<(), String> {
+    let tex_path = full_path.with_extension("png");
+    let ase_path = full_path.with_extension("ase.json");
+    let res_path = full_path.with_extension("res.json");
+
+    if !tex_path.is_file() {
+        return Err(format!(
+            "No PNG found for sprite map ({}).",
+            tex_path.to_str().unwrap_or("not a path")
+        ));
+    }
+    if !ase_path.is_file() {
+        return Err(format!(
+            "No Aseprite JSON found for sprite map ({}).",
+            ase_path.to_str().unwrap_or("not a path")
+        ));
+    }
+
+    let ase_str = std::fs::read_to_string(ase_path)
+        .or(Err("Failed to load Aseprite JSON file".to_string()))?;
+    let mut metadata: AsepriteExport =
+        serde_json::from_str(&ase_str).or(Err("Failed to deserialize Aseprite JSON file"))?;
+
+    // Aseprite's frame tags are not ideal so we have to attach metadata to each cel manually
+    {
+        let mut frame_indexes_by_layer: HashMap<&str, u8> = HashMap::new();
+        for cel in &mut metadata.cels {
+            let (_, _, layer_name) = split_cel_name(&cel.name);
+
+            let index_in_layer = frame_indexes_by_layer
+                .entry(layer_name)
+                .and_modify(|i| *i += 1)
+                .or_insert(0);
+
+            let Some(layer_tag) = metadata.meta.layers.iter().find(|i| i.name == layer_name) else {
+                continue;
+            };
+
+            for cel_tag in &layer_tag.cels {
+                if cel_tag.frame == *index_in_layer {
+                    cel.tags = HashSet::from_iter(cel_tag.data.split(" ").map(|s| s.to_string()));
+                }
+            }
+        }
+    }
+
+    let sm = SerializedSpriteMap {
+        tex_path: tex_path.to_str().unwrap().to_owned(),
+        cels: metadata
+            .cels
+            .iter()
+            .map(|layer| {
+                SpriteMapCel::new(
+                    FRect::from(&layer.sprite_tex_rect),
+                    FRect::from(&layer.source_rect),
+                )
+            })
+            .collect(),
+        animations: metadata
+            .meta
+            .animations
+            .iter()
+            .map(|anim| {
+                (
+                    anim.name.to_owned(),
+                    SpriteMapAnimation::from_aseprite(GlobalAllocator, anim, &metadata.cels),
+                )
+            })
+            .collect(),
+    };
+
+    let res_str = serde_json::to_string_pretty(&sm).map_err(|err| err.to_string())?;
+    std::fs::write(res_path, res_str).map_err(|err| err.to_string())?;
+
+    Ok(())
 }
 
 /// Loads a `SpriteMap` from a PNG and a JSON file
@@ -279,87 +445,19 @@ impl<'l, T> ResourceLoader<'l, SpriteMap<'l>> for SpriteMapLoader<'l, T> {
         &'l mut self,
         full_path: &Path,
     ) -> Result<SpriteMap<'l>, super::manager::ResourceError> {
-        let tex_path = full_path.with_extension("png");
-        let meta_path = full_path.with_extension("json");
+        let res_path = full_path.with_extension("res.json");
 
-        assert!(
-            tex_path.is_file(),
-            "No PNG found for sprite map ({}).",
-            tex_path.to_str().unwrap_or("not a path")
-        );
-        assert!(
-            meta_path.is_file(),
-            "No metadata found for sprite map ({}).",
-            meta_path.to_str().unwrap_or("not a path")
-        );
-
-        let meta_str = std::fs::read_to_string(meta_path).or(Err(ResourceError::LoadFailed))?;
-        let mut metadata: AsepriteExport =
-            serde_json::from_str(&meta_str).or(Err(ResourceError::LoadFailed))?;
-
-        // Aseprite's frame tags are not ideal so we have to attach metadata to each cel manually
-        {
-            let mut frame_indexes_by_layer: HashMap<&str, u8> = HashMap::new_in(self.allocator);
-            for cel in &mut metadata.cels {
-                let (_, _, layer_name) = split_cel_name(&cel.name);
-
-                let index_in_layer = frame_indexes_by_layer
-                    .entry(layer_name)
-                    .and_modify(|i| *i += 1)
-                    .or_insert(0);
-
-                let Some(layer_tag) = metadata.meta.layers.iter().find(|i| i.name == layer_name)
-                else {
-                    continue;
-                };
-
-                for cel_tag in &layer_tag.cels {
-                    if cel_tag.frame == *index_in_layer {
-                        cel.tags =
-                            HashSet::from_iter(cel_tag.data.split(" ").map(|s| s.to_string()));
-                    }
-                }
-            }
-        }
+        let res_str = std::fs::read_to_string(res_path).or(Err(ResourceError::LoadFailed))?;
+        let res: SerializedSpriteMap =
+            serde_json::from_str(&res_str).or(Err(ResourceError::LoadFailed))?;
 
         let mut tex = self
             .sdl_loader
-            .load_texture(tex_path)
+            .load_texture(&res.tex_path)
             .or(Err(ResourceError::LoadFailed))?;
         tex.set_scale_mode(ScaleMode::Nearest);
 
-        let sm = SpriteMap {
-            id: self.next_id,
-            tex,
-            cels: metadata
-                .cels
-                .iter()
-                .map(|layer| {
-                    SpriteMapCel::new(layer.sprite_tex_rect.to_sdl(), layer.source_rect.to_sdl())
-                })
-                .collect(),
-            names: metadata
-                .meta
-                .animations
-                .iter()
-                .enumerate()
-                .map(|(anim_id, ft)| {
-                    (
-                        ft.name.to_owned(),
-                        Id::<SpriteMapAnimation>::new_split(
-                            self.next_id.full() as u16,
-                            anim_id as u16,
-                        ),
-                    )
-                })
-                .collect(),
-            animations: metadata
-                .meta
-                .animations
-                .iter()
-                .map(|ft| SpriteMapAnimation::from_aseprite(self.allocator, ft, &metadata.cels))
-                .collect(),
-        };
+        let sm = SpriteMap::new_in(self.allocator, self.next_id, tex, res);
 
         self.next_id = self.next_id.next();
 

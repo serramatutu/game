@@ -1,7 +1,8 @@
 use allocator_api2::vec::Vec;
+use serde::{Deserialize, Serialize};
 
 /// A keyframe in an animation
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Keyframe<T: Clone> {
     pub duration_ms: u16,
     pub cumulative_duration_ms: u16,
@@ -19,7 +20,7 @@ impl<T: Clone> Keyframe<T> {
 }
 
 /// A collection of keyframes
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Animation<T: Clone> {
     keyframes: Vec<Keyframe<T>>,
 }

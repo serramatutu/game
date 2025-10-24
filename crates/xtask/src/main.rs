@@ -1,0 +1,36 @@
+use std::path::PathBuf;
+
+use clap::{Parser, Subcommand};
+use engine::resources::sprite_map::ase_to_res;
+
+/// Game build system and task runner helper
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Convert Aseprite-exported assets to `.res` files
+    AseToRes {
+        /// The resource name
+        name: String,
+    },
+}
+
+/// Game build system and task runner helper
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+fn main() -> Result<(), String> {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::AseToRes { name } => {
+            let root = PathBuf::from("resources/obj");
+            let path = root.join(name);
+            ase_to_res(path.as_path())?;
+        }
+    }
+
+    Ok(())
+}
