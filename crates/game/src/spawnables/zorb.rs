@@ -26,7 +26,7 @@ pub struct ResourceIds<'res> {
 pub fn load_resources<'res>(
     res: &'res mut Resources<'res>,
 ) -> Result<ResourceIds<'res>, ResourceError> {
-    let (sprite_id, sprite) = res.load_get_sprite_map("zorb")?;
+    let (sprite_id, sprite) = res.sprites.load_get("zorb")?;
 
     let res = ResourceIds {
         sprite: sprite_id,

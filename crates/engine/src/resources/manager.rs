@@ -1,6 +1,5 @@
 use allocator_api2::alloc::{Allocator, Global as GlobalAllocator};
 use hashbrown::{DefaultHashBuilder, HashMap};
-use std::path::Path;
 use thiserror::Error;
 
 use crate::types::Id;
@@ -13,15 +12,15 @@ pub enum ResourceError {
 
 /// Loads a resource of type `Res`
 pub trait ResourceLoader<'l, Res> {
-    fn load(&'l mut self, key: &Path) -> Result<Res, ResourceError>
+    fn load(&'l mut self, key: &'_ str) -> Result<Res, ResourceError>
     where
         Res: 'l;
 }
 
 /// Cache any resources loaded by a `ResourceLoader`
 pub struct ResourceManager<Res, Load, Alloc: Allocator = GlobalAllocator> {
+    pub(super) loader: Load,
     next_id: Id<Res>,
-    loader: Load,
     cache: HashMap<Id<Res>, Res, DefaultHashBuilder, Alloc>,
 }
 
@@ -39,7 +38,7 @@ where
     }
 
     /// Load a resource into the cache so that subsquent calls to `get()` don't fail
-    pub fn load(&'l mut self, key: &Path) -> Result<Id<Res>, ResourceError>
+    pub fn load(&'l mut self, key: &'_ str) -> Result<Id<Res>, ResourceError>
     where
         Load: ResourceLoader<'l, Res>,
     {
@@ -54,7 +53,7 @@ where
     }
 
     /// Load a resource into the cache and get a ref to it
-    pub fn load_get(&'l mut self, key: &Path) -> Result<(Id<Res>, &'l Res), ResourceError>
+    pub fn load_get(&'l mut self, key: &'_ str) -> Result<(Id<Res>, &'l Res), ResourceError>
     where
         Load: ResourceLoader<'l, Res>,
     {

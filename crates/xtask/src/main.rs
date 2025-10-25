@@ -26,9 +26,10 @@ fn main() -> Result<(), String> {
 
     match cli.command {
         Commands::AseToRes { name } => {
-            let root = PathBuf::from("resources/obj");
-            let path = root.join(name);
-            ase_to_res(path.as_path())?;
+            ase_to_res(
+                PathBuf::from("resources/obj").as_path(),
+                PathBuf::from(name).as_path(),
+            )?;
         }
     }
 

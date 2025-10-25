@@ -23,7 +23,7 @@ pub fn init<'gs>(params: &'gs mut InitParams<'gs, 'gs>) -> Result<NonNull<[u8]>>
 
     let pool = unsafe { ptr.cast::<MemoryPool>().as_mut() };
 
-    params.resources.root = PathBuf::from("resources/obj");
+    params.resources.set_root(PathBuf::from("resources/obj"));
 
     params.camera.init(0.5, 3.0, WorldPoint::origin());
     params.camera.set_zoom(0.5);

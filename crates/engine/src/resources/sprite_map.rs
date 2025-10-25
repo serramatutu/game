@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use allocator_api2::{
     alloc::{Allocator, Global as GlobalAllocator},
@@ -400,15 +400,17 @@ impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
 ///
 #[expect(clippy::disallowed_methods)]
 /// This allocates memory.
-pub fn ase_to_res(full_path: &Path) -> Result<(), String> {
-    let tex_path = full_path.with_extension("png");
+pub fn ase_to_res(root_path: &Path, res_path: &Path) -> Result<(), String> {
+    let full_path = root_path.join(res_path);
+    let tex_path = res_path.with_extension("png");
+    let tex_full_path = full_path.with_extension("png");
     let ase_path = full_path.with_extension("ase.json");
     let res_path = full_path.with_extension("res.json");
 
-    if !tex_path.is_file() {
+    if !tex_full_path.is_file() {
         return Err(format!(
             "No PNG found for sprite map ({}).",
-            tex_path.to_str().unwrap_or("not a path")
+            tex_full_path.to_str().unwrap_or("not a path")
         ));
     }
     if !ase_path.is_file() {
@@ -525,35 +527,42 @@ pub fn ase_to_res(full_path: &Path) -> Result<(), String> {
 
 /// Loads a `SpriteMap` from a PNG and a JSON file
 pub struct SpriteMapLoader<'res, T, A: Allocator = GlobalAllocator> {
+    pub(super) root_path: PathBuf,
+
     allocator: A,
     sdl_loader: TextureCreator<T>,
     next_id: Id<SpriteMap<'res>>,
 }
 
 impl<'res, T, A: Allocator> SpriteMapLoader<'res, T, A> {
-    pub fn new(allocator: A, sdl_loader: TextureCreator<T>) -> SpriteMapLoader<'res, T, A> {
+    pub fn new(
+        allocator: A,
+        sdl_loader: TextureCreator<T>,
+        root_path: impl Into<PathBuf>,
+    ) -> SpriteMapLoader<'res, T, A> {
         Self {
             allocator,
             sdl_loader,
+            root_path: root_path.into(),
             next_id: Id::<SpriteMap>::new(0),
         }
     }
 }
 
 impl<'l, T> ResourceLoader<'l, SpriteMap<'l>> for SpriteMapLoader<'l, T> {
-    fn load(
-        &'l mut self,
-        full_path: &Path,
-    ) -> Result<SpriteMap<'l>, super::manager::ResourceError> {
+    fn load(&'l mut self, path: &'_ str) -> Result<SpriteMap<'l>, super::manager::ResourceError> {
+        let full_path = self.root_path.join(path);
         let res_path = full_path.with_extension("res.json");
 
         let res_str = std::fs::read_to_string(res_path).or(Err(ResourceError::LoadFailed))?;
         let res: SerializedSpriteMap =
             serde_json::from_str(&res_str).or(Err(ResourceError::LoadFailed))?;
 
+        let tex_full_path = self.root_path.join(&res.tex_path);
+
         let mut tex = self
             .sdl_loader
-            .load_texture(&res.tex_path)
+            .load_texture(tex_full_path)
             .or(Err(ResourceError::LoadFailed))?;
         tex.set_scale_mode(ScaleMode::Nearest);
 

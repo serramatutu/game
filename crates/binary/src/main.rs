@@ -106,9 +106,12 @@ pub fn main() -> Result<()> {
 
     let tc2 = canvas.texture_creator();
 
+    let resource_root = PathBuf::from(".");
     let mut resources = Resources {
-        root: PathBuf::from("."),
-        sprites: SpriteMapManager::new(GlobalAllocator, SpriteMapLoader::new(GlobalAllocator, tc2)),
+        sprites: SpriteMapManager::new(
+            GlobalAllocator,
+            SpriteMapLoader::new(GlobalAllocator, tc2, resource_root),
+        ),
     };
     let mut init_params = InitParams {
         allocator: GlobalAllocator,
