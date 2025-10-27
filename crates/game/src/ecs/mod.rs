@@ -1,10 +1,11 @@
 use crate::{Ctx, with_components};
+use allocator_api2::alloc::Allocator;
 use anyhow::Result;
 use derivative::Derivative;
 use engine::types::Reset;
 use heapless::Vec;
 use paste::paste;
-use std::iter::Iterator;
+use std::{iter::Iterator, marker::PhantomData};
 
 pub mod components;
 pub use components::Entity;
@@ -18,16 +19,6 @@ pub const SENTINEL: usize = 0;
 /// The max number of entities in the world at a time
 const MAX_ENTITIES: usize = 8192;
 
-/// All the registered ECS systems
-///
-/// They execute in order from top to bottom
-const SYSTEMS: [SystemFn; 3] = [
-    systems::navigation::follow::update_and_render,
-    systems::draw::update_and_render,
-    #[cfg(debug_assertions)]
-    systems::debug::draw::update_and_render,
-];
-
 /// Holds all the entities, components and systems of the ECS.
 ///
 /// INVARIANTS:
@@ -36,12 +27,30 @@ const SYSTEMS: [SystemFn; 3] = [
 /// - The zero index entity is a null entity that is never in the world.
 #[derive(Derivative, Debug)]
 #[derivative(Clone(clone_from = "true"))]
-pub struct Ecs<'res> {
-    components: components::Components<'res>,
+pub struct Ecs<A: Allocator + Clone> {
+    _pd: PhantomData<A>,
+    components: components::Components,
     entities: Vec<Entity, MAX_ENTITIES>,
 }
 
-impl<'res> Ecs<'res> {
+#[cfg(debug_assertions)]
+const NUM_SYSTEMS: usize = 4;
+#[cfg(not(debug_assertions))]
+const NUM_SYSTEMS: usize = 3;
+
+impl<A: Allocator + Clone> Ecs<A> {
+
+    /// All the registered ECS systems
+    ///
+    /// They execute in order from top to bottom
+    const SYSTEMS: [SystemFn<A>; NUM_SYSTEMS] = [
+        systems::navigation::follow::update_and_render,
+        systems::draw::update_and_render_animations,
+        systems::draw::update_and_render_terrain,
+        #[cfg(debug_assertions)]
+        systems::debug::draw::update_and_render,
+    ];
+
     fn get_component<T: Copy>(components: &[(usize, T)], idx: usize) -> Option<T> {
         match idx {
             SENTINEL => None,
@@ -63,15 +72,15 @@ impl<'res> Ecs<'res> {
         }
     }
 
-    pub fn update_and_render<'gs>(&mut self, ctx: &mut Ctx<'gs>, prev: &Ecs) -> Result<()> {
-        for sys in SYSTEMS {
+    pub fn update_and_render<'gs>(&mut self, ctx: &mut Ctx<'gs, A>, prev: &Ecs<A>) -> Result<()> {
+        for sys in Self::SYSTEMS {
             sys(ctx, prev, self)?;
         }
         Ok(())
     }
 }
 
-impl<'res> Reset for Ecs<'res> {
+impl<A: Allocator + Clone> Reset for Ecs<A> {
     fn reset(&mut self) {
         self.components.reset();
         self.entities.resize(1, Default::default()).unwrap();
@@ -221,7 +230,7 @@ macro_rules! impl_accessors {
     }
 }
 
-impl<'res> Ecs<'res> {
+impl<A: Allocator + Clone> Ecs<A> {
     with_components!(impl_accessors);
 }
 
@@ -231,13 +240,13 @@ macro_rules! impl_entity_spawner {
 
         /// Constructs an entity by adding components to it
         #[derive(Default)]
-        pub struct EntitySpawner<'res> {
+        pub struct EntitySpawner {
             $(
                 $attr: Option<$type>,
             )*
         }
 
-        impl<'res> EntitySpawner<'res> {
+        impl EntitySpawner {
             $(
                 paste! {
                     #[doc= concat!("Add the default", stringify!($attr) , " value to the spawned entity")]
@@ -261,7 +270,7 @@ macro_rules! impl_entity_spawner {
             }
 
             /// Spawn the entity into the ECS world
-            pub fn spawn(self, ecs: &mut Ecs<'res>) -> usize {
+            pub fn spawn<A: Allocator + Clone>(self, ecs: &mut Ecs<A>) -> usize {
                 let entity_id = ecs.entities.len();
                 // FIXME: what to do when there are too many entities that get spawned? Fail
                 // silently?
@@ -271,7 +280,7 @@ macro_rules! impl_entity_spawner {
                 $(
                     if let Some(value) = self.$attr {
                         paste! {
-                            Ecs::[<push_ $attr _unchecked>](&mut ecs.components.$attr, entity_id, entity, value);
+                            Ecs::<A>::[<push_ $attr _unchecked>](&mut ecs.components.$attr, entity_id, entity, value);
                         }
                     }
                 )*

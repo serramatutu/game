@@ -1,3 +1,10 @@
+//! The game dylib's main entrypoint
+//!
+//! ALLOCATOR: To simplify things, we're fooling rust by telling it we're using the
+//! `GlobalAllocator` everywhere. In practice, we're actually using the allocator
+//! supplied by the main executable, which may be different. As long as we are careful
+//! in the functions here, everything elswhere should work.
+
 mod consts;
 mod ecs;
 mod global_state;
@@ -6,7 +13,7 @@ mod spawnables;
 use std::path::PathBuf;
 use std::ptr::NonNull;
 
-use allocator_api2::alloc::{Allocator, Layout};
+use allocator_api2::alloc::{Allocator, Layout, Global as GlobalAllocator};
 use anyhow::Result;
 use ecs::components::{Follow, SpriteAnim, SpriteAnims};
 use ecs::{EntitySpawner, SENTINEL};
@@ -17,11 +24,11 @@ use engine::types::Reset;
 use global_state::{Ctx, MemoryPool};
 
 #[unsafe(no_mangle)]
-pub fn init<'gs>(params: &'gs mut InitParams<'gs, 'gs>) -> Result<NonNull<[u8]>> {
-    let layout = Layout::new::<MemoryPool>();
+extern "Rust" fn init<'gs>(params: &'gs mut InitParams<'gs, 'gs, GlobalAllocator>) -> Result<NonNull<[u8]>> {
+    let layout = Layout::new::<MemoryPool<GlobalAllocator>>();
     let ptr = params.allocator.allocate(layout)?;
 
-    let pool = unsafe { ptr.cast::<MemoryPool>().as_mut() };
+    let pool = unsafe { ptr.cast::<MemoryPool<GlobalAllocator>>().as_mut() };
 
     params.resources.set_root(PathBuf::from("resources/obj"));
 
@@ -33,15 +40,16 @@ pub fn init<'gs>(params: &'gs mut InitParams<'gs, 'gs>) -> Result<NonNull<[u8]>>
     pool.prev.ecs.reset();
     pool.next.ecs.reset();
 
+    pool.resource_ids.terrain = Some(spawnables::terrain::load_resources(params.resources)?);
     pool.resource_ids.zorb = Some(spawnables::zorb::load_resources(params.resources)?);
 
     Ok(ptr)
 }
 
 #[unsafe(no_mangle)]
-pub fn drop(params: DropParams) {
+extern "Rust" fn drop(params: DropParams<GlobalAllocator>) {
     // TODO: unload resources
-    let layout = Layout::new::<MemoryPool>();
+    let layout = Layout::new::<MemoryPool<GlobalAllocator>>();
     unsafe {
         params
             .allocator
@@ -50,8 +58,8 @@ pub fn drop(params: DropParams) {
 }
 
 #[unsafe(no_mangle)]
-pub fn update_and_render<'gs>(params: &'gs mut UpdateAndRenderParams<'gs, 'gs>) -> Result<bool> {
-    let pool = unsafe { params.memory.cast::<MemoryPool>().as_mut() };
+extern "Rust" fn update_and_render<'gs>(params: &'gs mut UpdateAndRenderParams<'gs, 'gs, GlobalAllocator>) -> Result<bool> {
+    let pool = unsafe { params.memory.cast::<MemoryPool<GlobalAllocator>>().as_mut() };
 
     let mut ctx = Ctx {
         allocator: params.allocator,
@@ -68,6 +76,11 @@ pub fn update_and_render<'gs>(params: &'gs mut UpdateAndRenderParams<'gs, 'gs>) 
 
     if params.events.quit() || params.events.key(sdl3::keyboard::Keycode::Escape).down {
         return Ok(false);
+    }
+
+    // generate tile map
+    if pool.prev.terrain == SENTINEL {
+        pool.next.terrain = spawnables::terrain::spawn(&mut ctx, &mut pool.next.ecs);
     }
 
     let right_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Right);

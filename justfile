@@ -5,6 +5,7 @@ now := `date +%s`
 target := "debug"
 
 aseprite_args := "--batch --format json-array --ignore-empty --list-tags --list-layers --split-layers --split-tags --trim --merge-duplicates --filename-format '{tag}#{frame}#{layer}'"
+build_args := ""
 
 check: check-lint check-fmt 
 
@@ -23,14 +24,14 @@ fix-fmt:
   cargo fmt
 
 build:
-  cargo build --all
+  cargo build {{build_args}} --all
   @just _timestamp-game
 
 build-binary:
-  cargo build --package binary
+  cargo build {{build_args}} --package binary
 
 build-game:
-  cargo build --package game
+  cargo build {{build_args}} --package game
   @just _timestamp-game
 
 _timestamp-game:
@@ -46,7 +47,7 @@ res target:
   rm resources/obj/{{target}}.ase.json
 
 run:
- RUST_BACKTRACE=1 cargo run --package binary
+ RUST_BACKTRACE=1 cargo run {{build_args}} --package binary
 
 test:
   cargo nextest run

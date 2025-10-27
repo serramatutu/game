@@ -2,11 +2,13 @@ use derivative::Derivative;
 use engine::{
     animation::AnimationCursor,
     coords::WorldPoint,
-    resources::sprite_map::{SpriteMap, SpriteMapAnimation},
+    resources::sprite_map::{SpriteMapAnimation, SpriteMapIdMarker},
     types::{Id, Reset},
 };
 use heapless::Vec;
 use sdl3::pixels::Color;
+
+pub use engine::tile_map::TileMap;
 
 use crate::ecs::MAX_ENTITIES;
 
@@ -14,15 +16,23 @@ pub type Pos = WorldPoint;
 
 pub const MAX_ANIM_PER_ENTITY: usize = 4;
 
+#[derive(Clone, Default, Debug)]
+pub struct Tile(pub bool);
+
+#[derive(Clone, Default, Debug)]
+pub struct Terrain {
+    pub tiles: TileMap<Tile>,
+}
+
 #[derive(Copy, Clone, Default, Debug)]
-pub struct SpriteAnim<'res> {
-    pub sprite: Id<SpriteMap<'res>>,
+pub struct SpriteAnim {
+    pub sprite: Id<SpriteMapIdMarker>,
     pub anim: Id<SpriteMapAnimation>,
     pub cursor: AnimationCursor,
 }
 
-impl<'res> SpriteAnim<'res> {
-    pub fn from_sprite(sprite: Id<SpriteMap<'res>>, anim: Id<SpriteMapAnimation>) -> Self {
+impl SpriteAnim {
+    pub fn from_sprite(sprite: Id<SpriteMapIdMarker>, anim: Id<SpriteMapAnimation>) -> Self {
         Self {
             sprite,
             anim,
@@ -31,7 +41,7 @@ impl<'res> SpriteAnim<'res> {
     }
 }
 
-pub type SpriteAnims<'res> = Vec<SpriteAnim<'res>, MAX_ANIM_PER_ENTITY>;
+pub type SpriteAnims = Vec<SpriteAnim, MAX_ANIM_PER_ENTITY>;
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct Follow {
@@ -55,7 +65,8 @@ macro_rules! with_components {
             (follow, $crate::ecs::components::Follow, true),
             // FIXME: remove debug flags in prod build
             (debug, $crate::ecs::components::DebugFlags, true),
-            (sprite_anims, $crate::ecs::components::SpriteAnims<'res>, false)
+            (sprite_anims, $crate::ecs::components::SpriteAnims, false),
+            (terrain, $crate::ecs::components::Terrain, false)
         }
     };
 }
@@ -88,13 +99,13 @@ macro_rules! impl_components {
         /// be used
         #[derive(Derivative, Debug)]
         #[derivative(Clone(clone_from="true"))]
-        pub struct Components<'res> {
+        pub struct Components {
             $(
                 pub $attr: Vec<(usize, $type), MAX_ENTITIES>,
             )*
         }
 
-        impl<'res> Components<'res> {
+        impl<'res> Components {
             pub fn new() -> Self {
                 Self {
                     $(
@@ -104,7 +115,7 @@ macro_rules! impl_components {
             }
         }
 
-        impl<'res> Reset for Components<'res> {
+        impl Reset for Components {
             fn reset(&mut self) {
                 $(
                     self.$attr.resize(1, Default::default()).unwrap();
@@ -126,7 +137,7 @@ with_components!(impl_entity);
 
 with_components!(impl_components);
 
-impl<'res> Default for Components<'res> {
+impl Default for Components {
     fn default() -> Self {
         Components::new()
     }

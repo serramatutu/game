@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use allocator_api2::alloc::Global as GlobalAllocator;
 use clap::{Parser, Subcommand};
 use engine::resources::sprite_map::ase_to_res;
 
@@ -27,6 +28,7 @@ fn main() -> Result<(), String> {
     match cli.command {
         Commands::AseToRes { name } => {
             ase_to_res(
+                GlobalAllocator,
                 PathBuf::from("resources/obj").as_path(),
                 PathBuf::from(name).as_path(),
             )?;

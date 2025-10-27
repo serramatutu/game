@@ -1,13 +1,68 @@
 //! Drawing, animation and rendering systems
 
+use allocator_api2::alloc::Allocator;
 use engine::coords::{WorldPoint, WorldRect, WorldSize, convert::screen_rect_to_sdl};
+use sdl3::render::FRect;
 
 use crate::{Ctx, consts::PIXEL_TO_WORLD, ecs::Ecs};
 
-pub fn update_and_render<'gs>(
-    ctx: &mut Ctx<'gs>,
-    prev: &Ecs,
-    next: &mut Ecs,
+pub fn update_and_render_terrain<'gs, A: Allocator + Clone>(
+    ctx: &mut Ctx<'gs, A>,
+    prev: &Ecs<A>,
+    _next: &mut Ecs<A>,
+) -> anyhow::Result<()> {
+    let Some(res) = &ctx.resource_ids.terrain else {
+        return Ok(());
+    };
+
+    let sprite_map = ctx.resources.sprites.get(res.sprite);
+    let tileset = sprite_map.get_tileset(res.tileset);
+
+    for (_, terrain) in prev.terrain_iter() {
+        // TODO: optimize
+        for x in 0..terrain.tiles.size() {
+            for y in 0..terrain.tiles.size() {
+                let tile = terrain.tiles.get(x, y);
+                if !tile.0 {
+                    continue;
+                }
+
+                // TODO: proper tile set tile selection logic
+                let tex_rect = FRect {
+                    x: tileset.rect.x,
+                    y: tileset.rect.y,
+                    w: tileset.grid_size as f32,
+                    h: tileset.grid_size as f32,
+                };
+
+                // TODO: proper pixel to world conversion somewhere
+                let world_pos = WorldPoint::new(
+                    (x * tileset.grid_size as usize) as f64 * PIXEL_TO_WORLD,
+                    (y * tileset.grid_size as usize) as f64 * PIXEL_TO_WORLD,
+                );
+                let world_size = WorldSize::new(
+                    tileset.grid_size as f64 * PIXEL_TO_WORLD,
+                    tileset.grid_size as f64 * PIXEL_TO_WORLD,
+                );
+                let world_rect = WorldRect::new(world_pos, world_size);
+                let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
+
+                ctx.canvas.copy(
+                    tileset.tex,
+                    Some(tex_rect),
+                    Some(screen_rect_to_sdl(&screen_box)),
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn update_and_render_animations<'gs, A: Allocator + Clone>(
+    ctx: &mut Ctx<'gs, A>,
+    prev: &Ecs<A>,
+    next: &mut Ecs<A>,
 ) -> anyhow::Result<()> {
     for (entity_id, prev_anims) in prev.sprite_anims_iter() {
         let entity_id = *entity_id;
@@ -35,6 +90,7 @@ pub fn update_and_render<'gs>(
                 );
                 let world_rect = WorldRect::new(world_pos, world_size);
                 let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
+
                 ctx.canvas.copy(
                     &sprite.tex,
                     Some(cel.tex_rect),

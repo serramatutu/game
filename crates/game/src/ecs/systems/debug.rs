@@ -4,14 +4,15 @@ use crate::{Ctx, ecs::Ecs};
 
 /// System to draw debug squares around entities
 pub mod draw {
+    use allocator_api2::alloc::Allocator;
     use engine::coords::{self, WorldRect, WorldSize};
 
     use super::*;
 
-    pub fn update_and_render<'gs>(
-        ctx: &mut Ctx<'gs>,
-        prev: &Ecs,
-        _next: &mut Ecs,
+    pub fn update_and_render<'gs, A: Allocator + Clone>(
+        ctx: &mut Ctx<'gs, A>,
+        prev: &Ecs<A>,
+        _next: &mut Ecs<A>,
     ) -> anyhow::Result<()> {
         for &(entity_id, pos) in prev.pos_iter() {
             let Some(dbg_flags) = prev.debug_for(entity_id) else {

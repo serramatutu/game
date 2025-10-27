@@ -6,4 +6,5 @@ pub mod hooks;
 pub mod math;
 pub mod resources;
 pub mod serde;
+pub mod tile_map;
 pub mod types;

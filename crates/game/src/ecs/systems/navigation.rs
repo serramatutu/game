@@ -4,15 +4,17 @@ use crate::{Ctx, ecs::Ecs};
 
 /// System to make an entity follow another
 pub mod follow {
+    use allocator_api2::alloc::Allocator;
+
     use super::*;
 
     // TODO: follow speed as component?
     const SPEED_S: f64 = 500.0;
 
-    pub fn update_and_render<'gs>(
-        ctx: &mut Ctx<'gs>,
-        prev: &Ecs,
-        next: &mut Ecs,
+    pub fn update_and_render<'gs, A: Allocator + Clone>(
+        ctx: &mut Ctx<'gs, A>,
+        prev: &Ecs<A>,
+        next: &mut Ecs<A>,
     ) -> anyhow::Result<()> {
         for &(follower_id, follow) in prev.follow_iter() {
             let follower_pos = prev.pos_for_unchecked(follower_id);
