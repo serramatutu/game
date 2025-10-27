@@ -3,18 +3,15 @@ use engine::{
     animation::AnimationCursor,
     coords::WorldPoint,
     resources::sprite_map::{SpriteMapAnimation, SpriteMapIdMarker},
+    tile_map::TileMap,
     types::{Id, Reset},
 };
 use heapless::Vec;
 use sdl3::pixels::Color;
 
-pub use engine::tile_map::TileMap;
-
 use crate::ecs::MAX_ENTITIES;
 
 pub type Pos = WorldPoint;
-
-pub const MAX_ANIM_PER_ENTITY: usize = 4;
 
 #[derive(Clone, Default, Debug)]
 pub struct Tile(pub bool);
@@ -23,6 +20,8 @@ pub struct Tile(pub bool);
 pub struct Terrain {
     pub tiles: TileMap<Tile>,
 }
+
+pub const MAX_ANIM_PER_ENTITY: usize = 4;
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct SpriteAnim {
@@ -61,19 +60,19 @@ pub struct DebugFlags {
 macro_rules! with_components {
     ($inner_macro:ident) => {
         $inner_macro! {
-            (pos, $crate::ecs::components::Pos, true),
-            (follow, $crate::ecs::components::Follow, true),
+            (pos, $crate::ecs::components::Pos, true, MAX_ENTITIES),
+            (follow, $crate::ecs::components::Follow, true, 64),
             // FIXME: remove debug flags in prod build
-            (debug, $crate::ecs::components::DebugFlags, true),
-            (sprite_anims, $crate::ecs::components::SpriteAnims, false),
-            (terrain, $crate::ecs::components::Terrain, false)
+            (debug, $crate::ecs::components::DebugFlags, true, MAX_ENTITIES),
+            (sprite_anims, $crate::ecs::components::SpriteAnims, false, MAX_ENTITIES),
+            (terrain, $crate::ecs::components::Terrain, false, 2)
         }
     };
 }
 
 /// Implement the entity struct based on our list of components
 macro_rules! impl_entity {
-    ( $( ($attr:ident, $type:ty, $cheap_copy:tt) ),+ ) => {
+    ( $( ($attr:ident, $type:ty, $cheap_copy:tt, $max:tt) ),+ ) => {
 
         /// An entity with optionally attached components
         ///
@@ -91,7 +90,7 @@ macro_rules! impl_entity {
 
 /// Implement the components struct based on our list of components
 macro_rules! impl_components {
-    ( $( ($attr:ident, $type:ty, $cheap_copy:tt) ),+ ) => {
+    ( $( ($attr:ident, $type:ty, $cheap_copy:tt, $max:tt) ),+ ) => {
 
         /// Exhaustive list of all possible components of an entity
         ///
@@ -101,7 +100,7 @@ macro_rules! impl_components {
         #[derivative(Clone(clone_from="true"))]
         pub struct Components {
             $(
-                pub $attr: Vec<(usize, $type), MAX_ENTITIES>,
+                pub $attr: Vec<(usize, $type), $max>,
             )*
         }
 
@@ -126,7 +125,7 @@ macro_rules! impl_components {
 }
 
 /// Create a vec with one sentinel value at the beginning
-fn sentinel_vec<T: Default>() -> Vec<T, MAX_ENTITIES> {
+fn sentinel_vec<T: Default, const N: usize>() -> Vec<T, N> {
     let mut v = Vec::new();
     v.push(T::default())
         .unwrap_or_else(|_| panic!("Programming error."));

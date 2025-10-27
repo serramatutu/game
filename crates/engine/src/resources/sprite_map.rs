@@ -3,10 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use allocator_api2::{
-    alloc::Allocator,
-    vec::Vec,
-};
+use allocator_api2::{alloc::Allocator, vec::Vec};
 use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
 use sdl3::image::LoadTexture;
 use sdl3::render::{FRect, ScaleMode, Texture, TextureCreator};
@@ -412,7 +409,7 @@ impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
     /// Get an animation by ID or panic
     pub fn get_animation(&self, id: Id<SpriteMapAnimation>) -> &SpriteMapAnimation {
         debug_assert!(id.hi() == self.id.full() as u16);
-        &self.animations[id.0 as usize]
+        &self.animations[id.lo() as usize]
     }
 
     /// Get a tileset's ID by its name or panic
@@ -426,7 +423,7 @@ impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
     /// Get a tileset by ID or panic
     pub fn get_tileset<'this>(&'this self, id: Id<Tileset>) -> ResolvedTileset<'this, 'tex> {
         debug_assert!(id.hi() == self.id.full() as u16);
-        let tileset = &self.tilesets[id.0 as usize];
+        let tileset = &self.tilesets[id.lo() as usize];
 
         let rect = self.cels[tileset.cel as usize].tex_rect;
         ResolvedTileset {
@@ -442,7 +439,11 @@ impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
 ///
 #[expect(clippy::disallowed_methods)]
 /// This allocates memory.
-pub fn ase_to_res<A: Allocator + Clone>(allocator: A, root_path: &Path, res_path: &Path) -> Result<(), String> {
+pub fn ase_to_res<A: Allocator + Clone>(
+    allocator: A,
+    root_path: &Path,
+    res_path: &Path,
+) -> Result<(), String> {
     let full_path = root_path.join(res_path);
     let tex_path = res_path.with_extension("png");
     let tex_full_path = full_path.with_extension("png");

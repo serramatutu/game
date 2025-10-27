@@ -37,7 +37,7 @@ const NEIGHBORS: [(NeighborPos, i16, i16); 8] = [
 /// It stores a padding around the map to avoid bounds checking of
 /// neighbors.
 #[derive(Derivative)]
-#[derivative(Clone(clone_from="true"))]
+#[derivative(Clone(clone_from = "true"))]
 #[derive(Debug)]
 pub struct TileMap<Tile> {
     map: Vec<Tile, SIZE_PAD_SQ>,
@@ -48,9 +48,7 @@ impl<Tile: Default + Clone> Default for TileMap<Tile> {
         let mut map = Vec::new();
         map.resize_default(SIZE_PAD_SQ).unwrap();
 
-        Self {
-            map,
-        }
+        Self { map }
     }
 }
 

@@ -20,6 +20,7 @@ struct Game<'a, A: Allocator + Clone> {
     #[expect(clippy::type_complexity)]
     init_fn: Symbol<'a, fn(params: &mut InitParams<A>) -> Result<NonNull<[u8]>>>,
     drop_fn: Symbol<'a, fn(params: DropParams<A>)>,
+    #[expect(clippy::type_complexity)]
     update_and_render_fn: Symbol<'a, fn(params: &mut UpdateAndRenderParams<A>) -> Result<bool>>,
 }
 
@@ -77,7 +78,7 @@ const WINDOW_WIDTH: u16 = 1920;
 const WINDOW_HEIGHT: u16 = 1080;
 
 pub fn main() -> Result<()> {
-    unsafe { backtrace_on_stack_overflow::enable() }
+    // unsafe { backtrace_on_stack_overflow::enable() }
 
     let mut path = Game::<GlobalAllocator>::get_latest_library_path()?;
     let mut game_lib =

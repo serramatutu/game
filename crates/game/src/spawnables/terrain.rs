@@ -21,7 +21,9 @@ pub struct ResourceIds {
     pub tileset: Id<Tileset>,
 }
 
-pub fn load_resources<'r, A: Allocator + Clone>(res: &'r Resources<'r, A>) -> Result<ResourceIds, ResourceError> {
+pub fn load_resources<'r, A: Allocator + Clone>(
+    res: &'r Resources<'r, A>,
+) -> Result<ResourceIds, ResourceError> {
     res.sprites
         .load("tiles/mask")?
         .and_then(|sprite_id, sprite| {
@@ -43,9 +45,7 @@ fn generate() -> Terrain {
     terrain
 }
 
-pub fn spawn<'gs, A: Allocator + Clone>(ctx: &mut Ctx<'gs, A>, ecs: &mut Ecs<A>) -> usize {
-    let res = ctx.resource_ids.terrain.as_ref().unwrap();
-
+pub fn spawn<'gs, A: Allocator + Clone>(_ctx: &mut Ctx<'gs, A>, ecs: &mut Ecs<A>) -> usize {
     let terrain = generate();
 
     EntitySpawner::new()

@@ -39,14 +39,13 @@ const NUM_SYSTEMS: usize = 4;
 const NUM_SYSTEMS: usize = 3;
 
 impl<A: Allocator + Clone> Ecs<A> {
-
     /// All the registered ECS systems
     ///
     /// They execute in order from top to bottom
     const SYSTEMS: [SystemFn<A>; NUM_SYSTEMS] = [
         systems::navigation::follow::update_and_render,
-        systems::draw::update_and_render_animations,
         systems::draw::update_and_render_terrain,
+        systems::draw::update_and_render_animations,
         #[cfg(debug_assertions)]
         systems::debug::draw::update_and_render,
     ];
@@ -89,7 +88,7 @@ impl<A: Allocator + Clone> Reset for Ecs<A> {
 
 macro_rules! impl_accessor_copy {
     // cheap_copy
-    ($attr:ident, $type:ty, true) => {
+    ($attr:ident, $type:ty, true, $max:tt) => {
         paste! {
             #[allow(dead_code)]
             pub fn [<$attr _for>](&self, entity_id: usize) -> Option<$type> {
@@ -111,7 +110,7 @@ macro_rules! impl_accessor_copy {
     };
 
     // expensive copy
-    ($attr:ident, $type:ty, false) => {
+    ($attr:ident, $type:ty, false, $max:tt) => {
         paste! {
             #[allow(dead_code)]
             pub fn [<$attr _for>](&self, entity_id: usize) -> Option<&$type> {
@@ -135,13 +134,13 @@ macro_rules! impl_accessor_copy {
 
 /// Helper to create a getter for a component type in the `Ecs` struct
 macro_rules! impl_accessor {
-    ($attr:ident, $type:ty, $cheap_copy:tt) => {
+    ($attr:ident, $type:ty, $cheap_copy:tt, $max:tt) => {
         paste! {
-            fn [<push_ $attr _unchecked>](components: &mut Vec<(usize, $type), MAX_ENTITIES>, entity_id: usize, entity: &mut Entity, value: $type) {
+            fn [<push_ $attr _unchecked>]<const N: usize>(components: &mut Vec<(usize, $type), N>, entity_id: usize, entity: &mut Entity, value: $type) {
                 debug_assert!(entity_id != SENTINEL);
 
                 let component_id = components.len();
-                components.push((entity_id, value)).expect("Too many components. This is a definitely a bug.");
+                components.push((entity_id, value)).expect("Too many components.");
                 entity.$attr = component_id;
             }
 
@@ -222,10 +221,10 @@ macro_rules! impl_accessor {
 
 /// Implement all accesssors for all the component types
 macro_rules! impl_accessors {
-    ( $( ($attr:ident, $type:ty, $cheap_copy:tt) ),+ ) => {
+    ( $( ($attr:ident, $type:ty, $cheap_copy:tt, $max:tt) ),+ ) => {
         $(
-            impl_accessor_copy!($attr, $type, $cheap_copy);
-            impl_accessor!($attr, $type, $cheap_copy);
+            impl_accessor_copy!($attr, $type, $cheap_copy, $max);
+            impl_accessor!($attr, $type, $cheap_copy, $max);
         )*
     }
 }
@@ -236,7 +235,7 @@ impl<A: Allocator + Clone> Ecs<A> {
 
 /// Impleent the entity spawner with all possible components
 macro_rules! impl_entity_spawner {
-    ( $( ($attr:ident, $type:ty, $cheap_copy:tt) ),+ ) => {
+    ( $( ($attr:ident, $type:ty, $cheap_copy:tt, $max:tt) ),+ ) => {
 
         /// Constructs an entity by adding components to it
         #[derive(Default)]

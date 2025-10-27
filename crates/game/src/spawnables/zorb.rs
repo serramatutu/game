@@ -24,7 +24,9 @@ pub struct ResourceIds {
     pub anim_face_cute: Id<SpriteMapAnimation>,
 }
 
-pub fn load_resources<'r, A: Allocator + Clone>(res: &'r Resources<'r, A>) -> Result<ResourceIds, ResourceError> {
+pub fn load_resources<'r, A: Allocator + Clone>(
+    res: &'r Resources<'r, A>,
+) -> Result<ResourceIds, ResourceError> {
     res.sprites.load("zorb")?.and_then(|sprite_id, sprite| {
         Ok(ResourceIds {
             sprite: sprite_id,

@@ -13,7 +13,7 @@ mod spawnables;
 use std::path::PathBuf;
 use std::ptr::NonNull;
 
-use allocator_api2::alloc::{Allocator, Layout, Global as GlobalAllocator};
+use allocator_api2::alloc::{Allocator, Global as GlobalAllocator, Layout};
 use anyhow::Result;
 use ecs::components::{Follow, SpriteAnim, SpriteAnims};
 use ecs::{EntitySpawner, SENTINEL};
@@ -24,7 +24,9 @@ use engine::types::Reset;
 use global_state::{Ctx, MemoryPool};
 
 #[unsafe(no_mangle)]
-extern "Rust" fn init<'gs>(params: &'gs mut InitParams<'gs, 'gs, GlobalAllocator>) -> Result<NonNull<[u8]>> {
+extern "Rust" fn init<'gs>(
+    params: &'gs mut InitParams<'gs, 'gs, GlobalAllocator>,
+) -> Result<NonNull<[u8]>> {
     let layout = Layout::new::<MemoryPool<GlobalAllocator>>();
     let ptr = params.allocator.allocate(layout)?;
 
@@ -58,7 +60,9 @@ extern "Rust" fn drop(params: DropParams<GlobalAllocator>) {
 }
 
 #[unsafe(no_mangle)]
-extern "Rust" fn update_and_render<'gs>(params: &'gs mut UpdateAndRenderParams<'gs, 'gs, GlobalAllocator>) -> Result<bool> {
+extern "Rust" fn update_and_render<'gs>(
+    params: &'gs mut UpdateAndRenderParams<'gs, 'gs, GlobalAllocator>,
+) -> Result<bool> {
     let pool = unsafe { params.memory.cast::<MemoryPool<GlobalAllocator>>().as_mut() };
 
     let mut ctx = Ctx {
