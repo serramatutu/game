@@ -1,15 +1,44 @@
+use std::ops::{BitAnd, BitOr};
+
 use derivative::Derivative;
 use heapless::Vec;
 
-pub enum NeighborPos {
-    TopLeft,
-    Top,
-    TopRight,
-    Left,
-    Right,
-    BotLeft,
-    Bot,
-    BotRight,
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct NeighborMask(pub u8);
+
+impl NeighborMask {
+    pub const EMPTY: u8 = 0;
+
+    pub const TOP_LEFT: u8 = 1;
+    pub const TOP: u8 = 2;
+    pub const TOP_RIGHT: u8 = 4;
+    pub const LEFT: u8 = 8;
+    pub const RIGHT: u8 = 16;
+    pub const BOT_LEFT: u8 = 32;
+    pub const BOT: u8 = 64;
+    pub const BOT_RIGHT: u8 = 128;
+}
+
+impl NeighborMask {
+    pub fn is(&self, other: &NeighborMask) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl BitOr<NeighborMask> for NeighborMask {
+    type Output = Self;
+
+    fn bitor(self, rhs: NeighborMask) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
+
+impl BitAnd<NeighborMask> for NeighborMask {
+    type Output = Self;
+
+    fn bitand(self, rhs: NeighborMask) -> Self::Output {
+        Self(self.0 & rhs.0)
+    }
 }
 
 /// The reason the chunk size is const is because Rust does not allow compile-time
@@ -21,15 +50,15 @@ const SIZE_PAD: usize = SIZE + 2;
 const SIZE_PAD_SQ: usize = SIZE_PAD * SIZE_PAD;
 
 /// A mask that can be iterated over to find neighbors
-const NEIGHBORS: [(NeighborPos, i16, i16); 8] = [
-    (NeighborPos::TopLeft, -1, -1),
-    (NeighborPos::Top, 0, -1),
-    (NeighborPos::TopRight, 1, -1),
-    (NeighborPos::Left, -1, 0),
-    (NeighborPos::Right, 1, 0),
-    (NeighborPos::BotLeft, -1, 1),
-    (NeighborPos::Bot, 0, 1),
-    (NeighborPos::BotRight, 1, 1),
+const NEIGHBORS: [(u8, i16, i16); 8] = [
+    (NeighborMask::TOP_LEFT, -1, -1),
+    (NeighborMask::TOP, 0, -1),
+    (NeighborMask::TOP_RIGHT, 1, -1),
+    (NeighborMask::LEFT, -1, 0),
+    (NeighborMask::RIGHT, 1, 0),
+    (NeighborMask::BOT_LEFT, -1, 1),
+    (NeighborMask::BOT, 0, 1),
+    (NeighborMask::BOT_RIGHT, 1, 1),
 ];
 
 /// Stores the tiles in a world and allows querying for them.
@@ -74,14 +103,31 @@ impl<Tile> TileMap<Tile> {
 
     /// Iter over a tile's neighbors like so, where T is the tile:
     ///
-    /// 0 1 2
-    /// 3 T 4
-    /// 5 6 7
-    pub fn iter_neighbors(&self, x: usize, y: usize) -> impl Iterator<Item = (NeighborPos, &Tile)> {
+    /// 1  2  4
+    /// 8  T  16
+    /// 32 64 128
+    pub fn iter_neighbors(
+        &self,
+        x: usize,
+        y: usize,
+    ) -> impl Iterator<Item = (NeighborMask, &Tile)> {
         let x = x as i16;
         let y = y as i16;
-        NEIGHBORS
-            .into_iter()
-            .map(move |(np, dx, dy)| (np, self.get((x + dx) as usize, (y + dy) as usize)))
+        NEIGHBORS.into_iter().map(move |(np, dx, dy)| {
+            (
+                NeighborMask(np),
+                self.get((x + dx) as usize, (y + dy) as usize),
+            )
+        })
+    }
+
+    /// Get a mask of neighbors that match the predicate
+    pub fn filter_neighbors<F>(&self, x: usize, y: usize, predicate: F) -> NeighborMask
+    where
+        F: Fn(&Tile) -> bool,
+    {
+        self.iter_neighbors(x, y)
+            .filter(|(_np, tile)| predicate(tile))
+            .fold(NeighborMask(0), |acc, (np, _tile)| acc | np)
     }
 }

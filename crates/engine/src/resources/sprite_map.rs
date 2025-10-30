@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     animation::{Animation, AnimationCursor, Keyframe},
     serde::{is_empty, ordered_map},
+    tile_map::NeighborMask,
     types::Id,
 };
 
@@ -281,6 +282,30 @@ impl SpriteMapAnimation {
 pub struct Tileset {
     grid_size: u8,
     cel: u16,
+}
+
+impl Tileset {
+    const MASKS: [(u8, (usize, usize)); 4] = [
+        (NeighborMask::BOT, (0, 0)),
+        (NeighborMask::BOT | NeighborMask::RIGHT, (1, 0)),
+        (
+            NeighborMask::BOT | NeighborMask::RIGHT | NeighborMask::LEFT,
+            (2, 0),
+        ),
+        (NeighborMask::BOT | NeighborMask::LEFT, (3, 0)),
+    ];
+
+    /// Get the index of the neighbor mask in a tileset
+    pub fn rect_of(neighbor_mask: NeighborMask) -> (usize, usize) {
+        Self::MASKS
+            .iter()
+            .find(|(np, _)| (*np & neighbor_mask.0) != NeighborMask::EMPTY)
+            .map(|(_, pos)| *pos)
+            .unwrap_or_else(|| {
+                eprintln!("Could not match neighbor mask.");
+                (0, 0)
+            })
+    }
 }
 
 impl Resource<'_> for Tileset {
