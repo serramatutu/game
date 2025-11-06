@@ -78,7 +78,7 @@ extern "Rust" fn update_and_render<'gs>(
         screen_h: params.screen_h,
     };
 
-    if params.events.quit() || params.events.key(sdl3::keyboard::Keycode::Escape).down {
+    if params.events.quit() || params.events.key(sdl3::keyboard::Scancode::Escape).down {
         return Ok(false);
     }
 
@@ -125,23 +125,23 @@ extern "Rust" fn update_and_render<'gs>(
         // TODO: notify entity to delete itself
     }
 
-    if params.events.key(sdl3::keyboard::Keycode::W).down {
+    if params.events.key(sdl3::keyboard::Scancode::W).down {
         ctx.camera.pos.y -= 300.0 * ctx.delta_ms as f64 / 1000.0;
     }
-    if params.events.key(sdl3::keyboard::Keycode::S).down {
+    if params.events.key(sdl3::keyboard::Scancode::S).down {
         ctx.camera.pos.y += 300.0 * ctx.delta_ms as f64 / 1000.0;
     }
-    if params.events.key(sdl3::keyboard::Keycode::A).down {
+    if params.events.key(sdl3::keyboard::Scancode::A).down {
         ctx.camera.pos.x -= 300.0 * ctx.delta_ms as f64 / 1000.0;
     }
-    if params.events.key(sdl3::keyboard::Keycode::D).down {
+    if params.events.key(sdl3::keyboard::Scancode::D).down {
         ctx.camera.pos.x += 300.0 * ctx.delta_ms as f64 / 1000.0;
     }
-    if params.events.key(sdl3::keyboard::Keycode::Z).down {
+    if params.events.key(sdl3::keyboard::Scancode::Z).down {
         ctx.camera
             .change_zoom_around(1.0 * ctx.delta_ms as f64 / 1000.0, params.events.mouse_pos);
     }
-    if params.events.key(sdl3::keyboard::Keycode::X).down {
+    if params.events.key(sdl3::keyboard::Scancode::X).down {
         ctx.camera
             .change_zoom_around(-(ctx.delta_ms as f64) / 1000.0, params.events.mouse_pos);
     }

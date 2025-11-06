@@ -3,7 +3,7 @@
 use sdl3::{
     EventPump,
     event::Event,
-    keyboard::{Keycode, Mod},
+    keyboard::{Mod, Scancode},
     mouse::MouseButton,
     sys::scancode::SDL_Scancode,
 };
@@ -116,7 +116,7 @@ impl Events {
         &self.mouse_btns[btn as usize]
     }
 
-    pub fn key(&self, key: Keycode) -> &KeyStatus {
+    pub fn key(&self, key: Scancode) -> &KeyStatus {
         &self.keys[key as usize]
     }
 
