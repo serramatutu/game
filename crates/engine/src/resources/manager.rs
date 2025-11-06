@@ -115,7 +115,7 @@ where
     }
 
     /// Get a resource that was already preloaded otherwise panic
-    pub fn get(&self, id: Id<Res::Id>) -> Ref<Res> {
+    pub fn get(&self, id: Id<Res::Id>) -> Ref<'_, Res> {
         Ref::<'_, ResourceManagerInner<'res, Res, Alloc>>::map(self.inner.borrow(), |b| {
             b.cache
                 .get(&id)

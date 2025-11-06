@@ -40,8 +40,8 @@ impl<A: Allocator + Clone> Game<'_, A> {
 
 #[derive(Error, Debug)]
 pub enum LoadError {
-    #[error("Failed to load dynamic library")]
-    FailedToLoadLibrary,
+    #[error("Failed to load dynamic library: {0}")]
+    FailedToLoadLibrary(String),
     #[error("Failed to unload dynamic library")]
     FailedToUnloadLibrary,
     #[error("Symbol not found in library")]
@@ -51,7 +51,7 @@ pub enum LoadError {
 }
 
 impl<A: Allocator + Clone> Game<'_, A> {
-    fn from_lib(lib: &Library) -> Result<Game<A>, LoadError> {
+    fn from_lib(lib: &Library) -> Result<Game<'_, A>, LoadError> {
         unsafe {
             let game = Game {
                 init_fn: lib.get(b"init").or(Err(LoadError::SymbolNotFound))?,
@@ -81,8 +81,9 @@ pub fn main() -> Result<()> {
     // unsafe { backtrace_on_stack_overflow::enable() }
 
     let mut path = Game::<GlobalAllocator>::get_latest_library_path()?;
-    let mut game_lib =
-        unsafe { Library::new(path.clone()).or(Err(LoadError::FailedToLoadLibrary))? };
+    let mut game_lib = unsafe {
+        Library::new(path.clone()).map_err(|err| LoadError::FailedToLoadLibrary(err.to_string()))?
+    };
     let mut game = Some(Game::from_lib(&game_lib)?);
 
     let sdl_context = sdl3::init()?;
@@ -135,8 +136,10 @@ pub fn main() -> Result<()> {
 
             game_lib.close().or(Err(LoadError::FailedToUnloadLibrary))?;
 
-            game_lib =
-                unsafe { Library::new(path.clone()).or(Err(LoadError::FailedToLoadLibrary))? };
+            game_lib = unsafe {
+                Library::new(path.clone())
+                    .map_err(|err| LoadError::FailedToLoadLibrary(err.to_string()))?
+            };
             game = Some(Game::from_lib(&game_lib)?);
         }
 

@@ -89,12 +89,12 @@ impl<Tile> TileMap<Tile> {
 
     /// Get a tile ref
     pub fn get(&self, x: usize, y: usize) -> &Tile {
-        &self.map[(x + 1) * SIZE + (y + 1)]
+        &self.map[x * SIZE + y]
     }
 
     /// Get a tile mutable ref
     pub fn get_mut(&mut self, x: usize, y: usize) -> &mut Tile {
-        &mut self.map[(x + 1) * SIZE + (y + 1)]
+        &mut self.map[x * SIZE + y]
     }
 
     pub fn set(&mut self, x: usize, y: usize, tile: Tile) {

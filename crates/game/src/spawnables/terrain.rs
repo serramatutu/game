@@ -36,10 +36,13 @@ pub fn load_resources<'r, A: Allocator + Clone>(
 
 fn generate() -> Terrain {
     let mut terrain = Terrain::default();
-    for x in 0..10 {
-        for y in 0..20 {
-            terrain.tiles.set(x, y, Tile(true));
-        }
+    for v in 1..51 {
+        terrain.tiles.set(v, 1, Tile(true));
+        terrain.tiles.set(v, 50, Tile(true));
+        terrain.tiles.set(1, v, Tile(true));
+        terrain.tiles.set(50, v, Tile(true));
+        terrain.tiles.set(25, v, Tile(true));
+        terrain.tiles.set(v, 25, Tile(true));
     }
 
     terrain

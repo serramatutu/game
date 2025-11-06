@@ -285,7 +285,7 @@ pub struct Tileset {
 }
 
 impl Tileset {
-    const MASKS: [(u8, (usize, usize)); 4] = [
+    const MASKS: [(u8, (usize, usize)); 16] = [
         (NeighborMask::BOT, (0, 0)),
         (NeighborMask::BOT | NeighborMask::RIGHT, (1, 0)),
         (
@@ -293,17 +293,54 @@ impl Tileset {
             (2, 0),
         ),
         (NeighborMask::BOT | NeighborMask::LEFT, (3, 0)),
+        (NeighborMask::TOP | NeighborMask::BOT, (0, 1)),
+        (
+            NeighborMask::TOP | NeighborMask::BOT | NeighborMask::RIGHT,
+            (1, 1),
+        ),
+        (
+            NeighborMask::TOP | NeighborMask::BOT | NeighborMask::RIGHT | NeighborMask::LEFT,
+            (2, 1),
+        ),
+        (
+            NeighborMask::TOP | NeighborMask::BOT | NeighborMask::LEFT,
+            (3, 1),
+        ),
+        (NeighborMask::TOP, (0, 2)),
+        (NeighborMask::TOP | NeighborMask::RIGHT, (1, 2)),
+        (
+            NeighborMask::TOP | NeighborMask::RIGHT | NeighborMask::LEFT,
+            (2, 2),
+        ),
+        (NeighborMask::TOP | NeighborMask::LEFT, (3, 2)),
+        (NeighborMask::EMPTY, (0, 3)),
+        (NeighborMask::RIGHT, (1, 3)),
+        (NeighborMask::RIGHT | NeighborMask::LEFT, (2, 3)),
+        (NeighborMask::LEFT, (3, 3)),
+        // TODO: rest of the mask
     ];
 
     /// Get the index of the neighbor mask in a tileset
     pub fn rect_of(neighbor_mask: NeighborMask) -> (usize, usize) {
+        // OPTIMIZE: this can be optimized as an array or hashmap
         Self::MASKS
             .iter()
-            .find(|(np, _)| (*np & neighbor_mask.0) != NeighborMask::EMPTY)
+            .find(|(np, _)| *np == neighbor_mask.0)
             .map(|(_, pos)| *pos)
             .unwrap_or_else(|| {
-                eprintln!("Could not match neighbor mask.");
-                (0, 0)
+                let no_corners = neighbor_mask.0
+                    & (NeighborMask::LEFT
+                        | NeighborMask::RIGHT
+                        | NeighborMask::TOP
+                        | NeighborMask::BOT);
+                Self::MASKS
+                    .iter()
+                    .find(|(np, _)| *np == no_corners)
+                    .map(|(_, pos)| *pos)
+                    .unwrap_or_else(|| {
+                        eprintln!("Could not match neighbor mask: {}.", neighbor_mask.0);
+                        (0, 0)
+                    })
             })
     }
 }
@@ -317,6 +354,20 @@ pub struct ResolvedTileset<'texowner, 'tex> {
     pub tex: &'texowner Texture<'tex>,
     pub rect: FRect,
     pub grid_size: u8,
+}
+
+impl<'texowner, 'tex> ResolvedTileset<'texowner, 'tex> {
+    /// Get the final rectangle in the sprite that can be used
+    /// to draw the appropriate tile according to its neighbor connections
+    pub fn tex_rect_for(&self, connected_neighbors: NeighborMask) -> FRect {
+        let tile_rect_pos = Tileset::rect_of(connected_neighbors);
+        FRect {
+            x: self.rect.x + (tile_rect_pos.0 as u8 * self.grid_size) as f32,
+            y: self.rect.y + (tile_rect_pos.1 as u8 * self.grid_size) as f32,
+            w: self.grid_size as f32,
+            h: self.grid_size as f32,
+        }
+    }
 }
 
 /// A single rectangle that represents the boundaries of a single image
