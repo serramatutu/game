@@ -3,7 +3,7 @@
 use allocator_api2::alloc::Allocator;
 use engine::coords::{WorldPoint, WorldRect, WorldSize, convert::screen_rect_to_sdl};
 
-use crate::{Ctx, consts::PIXEL_TO_WORLD, ecs::Ecs};
+use crate::{Ctx, consts::WORLD_TO_PIXEL, ecs::Ecs};
 
 pub fn update_and_render_terrain<'gs, A: Allocator + Clone>(
     ctx: &mut Ctx<'gs, A>,
@@ -16,6 +16,8 @@ pub fn update_and_render_terrain<'gs, A: Allocator + Clone>(
 
     let sprite_map = ctx.resources.sprites.get(res.sprite);
     let tileset = sprite_map.get_tileset(res.tileset);
+
+    let block_width_world = WORLD_TO_PIXEL / tileset.grid_size as f64;
 
     for (_, terrain) in prev.terrain_iter() {
         // OPTIMIZE: use a pre-computed sprite that gets saved between frames
@@ -30,15 +32,11 @@ pub fn update_and_render_terrain<'gs, A: Allocator + Clone>(
 
                 let tex_rect = tileset.tex_rect_for(solid_neighbors);
 
-                // TODO: proper pixel to world conversion somewhere
                 let world_pos = WorldPoint::new(
-                    (x * tileset.grid_size as usize) as f64 * PIXEL_TO_WORLD,
-                    (y * tileset.grid_size as usize) as f64 * PIXEL_TO_WORLD,
+                    (x * block_width_world as usize) as f64,
+                    (y * block_width_world as usize) as f64,
                 );
-                let world_size = WorldSize::new(
-                    tileset.grid_size as f64 * PIXEL_TO_WORLD,
-                    tileset.grid_size as f64 * PIXEL_TO_WORLD,
-                );
+                let world_size = WorldSize::new(block_width_world, block_width_world);
                 let world_rect = WorldRect::new(world_pos, world_size);
                 let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
 
@@ -75,14 +73,9 @@ pub fn update_and_render_animations<'gs, A: Allocator + Clone>(
                 let cel = &sprite.cels[*cel_i as usize];
 
                 // TODO: proper pixel to world conversion somewhere
-                let world_pos = WorldPoint::new(
-                    pos.x + cel.src_rect.x as f64 * PIXEL_TO_WORLD,
-                    pos.y + cel.src_rect.y as f64 * PIXEL_TO_WORLD,
-                );
-                let world_size = WorldSize::new(
-                    cel.src_rect.w as f64 * PIXEL_TO_WORLD,
-                    cel.src_rect.h as f64 * PIXEL_TO_WORLD,
-                );
+                let world_pos =
+                    WorldPoint::new(pos.x + cel.src_rect.x as f64, pos.y + cel.src_rect.y as f64);
+                let world_size = WorldSize::new(cel.src_rect.w as f64, cel.src_rect.h as f64);
                 let world_rect = WorldRect::new(world_pos, world_size);
                 let screen_box = ctx.camera.world_to_screen_rect(&world_rect);
 

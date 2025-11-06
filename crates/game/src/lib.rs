@@ -23,6 +23,8 @@ use engine::types::Reset;
 
 use global_state::{Ctx, MemoryPool};
 
+use crate::consts::WORLD_TO_PIXEL;
+
 #[unsafe(no_mangle)]
 extern "Rust" fn init<'gs>(
     params: &'gs mut InitParams<'gs, 'gs, GlobalAllocator>,
@@ -34,8 +36,10 @@ extern "Rust" fn init<'gs>(
 
     params.resources.set_root(PathBuf::from("resources/obj"));
 
-    params.camera.init(0.5, 3.0, WorldPoint::origin());
-    params.camera.set_zoom(0.5);
+    params
+        .camera
+        .init(0.5, 30.0, WorldPoint::origin(), WORLD_TO_PIXEL);
+    params.camera.set_zoom(1.0);
 
     // NOTE: have to explicitly call default constructors as memory is initialized
     // with zeros

@@ -1,2 +1,2 @@
 /// Conversion factor of pixel to world meters
-pub static PIXEL_TO_WORLD: f64 = 10.00;
+pub static WORLD_TO_PIXEL: f64 = 3.0;

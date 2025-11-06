@@ -12,14 +12,22 @@ pub struct Camera {
     pub zoom: f64,
     pub min_zoom: f64,
     pub max_zoom: f64,
+    pub world_to_pix: f64,
 }
 
 impl Camera {
-    pub fn init(&mut self, min_zoom: f64, max_zoom: f64, pos: WorldPoint) {
+    pub fn init(
+        &mut self,
+        min_zoom: f64,
+        max_zoom: f64,
+        pos: WorldPoint,
+        world_to_pix_factor: f64,
+    ) {
         self.pos = pos;
         self.zoom = 1.0;
         self.min_zoom = min_zoom;
         self.max_zoom = max_zoom;
+        self.world_to_pix = world_to_pix_factor;
     }
 
     /// Set the zoom around the top left corner to a value, clamping it between the max and min allowed zoom
@@ -42,30 +50,35 @@ impl Camera {
 
     /// Convert a point in the world to a point in the screen
     pub fn world_to_screen_point(&self, world: &WorldPoint) -> ScreenPoint {
-        // TODO: zoom
         ScreenPoint::new(
-            (world.x - self.pos.x) * self.zoom,
-            (world.y - self.pos.y) * self.zoom,
+            (world.x - self.pos.x) * self.zoom * self.world_to_pix,
+            (world.y - self.pos.y) * self.zoom * self.world_to_pix,
         )
     }
 
     /// Convert a point in the screen to a point in the world
     pub fn screen_to_world_point(&self, screen: &ScreenPoint) -> WorldPoint {
-        // TODO: zoom
+        // TODO: WORLD TO PIX
         WorldPoint::new(
-            screen.x / self.zoom + self.pos.x,
-            screen.y / self.zoom + self.pos.y,
+            screen.x / (self.zoom * self.world_to_pix) + self.pos.x,
+            screen.y / (self.zoom * self.world_to_pix) + self.pos.y,
         )
     }
 
     /// Convert a size in the world to a point in the screen
     pub fn world_to_screen_size(&self, world: &WorldSize) -> ScreenSize {
-        ScreenSize::new(world.width * self.zoom, world.height * self.zoom)
+        ScreenSize::new(
+            world.width * self.zoom * self.world_to_pix,
+            world.height * self.zoom * self.world_to_pix,
+        )
     }
 
     /// Convert a size in the screen to a size in the world
     pub fn screen_to_world_size(&self, screen: &ScreenSize) -> WorldSize {
-        WorldSize::new(screen.width / self.zoom, screen.height / self.zoom)
+        WorldSize::new(
+            screen.width / (self.zoom * self.world_to_pix),
+            screen.height / (self.zoom * self.world_to_pix),
+        )
     }
 
     /// Convert a box in the world to a box in the screen
@@ -108,6 +121,7 @@ impl Default for Camera {
             zoom: 1.0,
             min_zoom: 1.0,
             max_zoom: 1.0,
+            world_to_pix: 1.0,
         }
     }
 }
