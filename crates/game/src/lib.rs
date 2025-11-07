@@ -5,7 +5,7 @@
 //! supplied by the main executable, which may be different. As long as we are careful
 //! in the functions here, everything elswhere should work.
 
-mod consts;
+mod coords;
 mod ecs;
 mod global_state;
 mod spawnables;
@@ -23,8 +23,6 @@ use engine::types::Reset;
 
 use global_state::{Ctx, MemoryPool};
 
-use crate::consts::WORLD_TO_PIXEL;
-
 #[unsafe(no_mangle)]
 extern "Rust" fn init<'gs>(
     params: &'gs mut InitParams<'gs, 'gs, GlobalAllocator>,
@@ -38,7 +36,7 @@ extern "Rust" fn init<'gs>(
 
     params
         .camera
-        .init(0.5, 30.0, WorldPoint::origin(), WORLD_TO_PIXEL);
+        .init(0.5, 30.0, WorldPoint::origin(), coords::WORLD_TO_PIXEL);
     params.camera.set_zoom(1.0);
 
     // NOTE: have to explicitly call default constructors as memory is initialized
@@ -91,40 +89,49 @@ extern "Rust" fn update_and_render<'gs>(
         pool.next.terrain = spawnables::terrain::spawn(&mut ctx, &mut pool.next.ecs);
     }
 
-    let right_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Right);
-    if right_mouse.down && pool.prev.zorb == SENTINEL {
-        pool.next.zorb = spawnables::zorb::spawn(&mut ctx, &mut pool.next.ecs);
-    }
+    // let right_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Right);
+    // if right_mouse.down && pool.prev.zorb == SENTINEL {
+    //     pool.next.zorb = spawnables::zorb::spawn(&mut ctx, &mut pool.next.ecs);
+    // }
 
     let left_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Left);
     if left_mouse.down {
+        let world_pos = ctx.camera.screen_to_world_point(&left_mouse.pos);
+        let tile_pos = coords::world_to_tile(world_pos);
+
+        let terrain = pool.next.ecs.terrain_for_mut_unchecked(pool.prev.terrain);
+        let tile = terrain
+            .tiles
+            .get_mut(tile_pos.x as usize, tile_pos.y as usize);
+        tile.0 = true;
+
         // TODO: move this to an input handling system
-        let follow_pos = ctx.camera.screen_to_world_point(&left_mouse.pos);
-        let follow_entity = EntitySpawner::new()
-            .with_pos(follow_pos)
-            .spawn(&mut pool.next.ecs);
-
-        pool.next.ecs.overwrite_sprite_anims_for(
-            pool.prev.zorb,
-            SpriteAnims::from_array([
-                SpriteAnim::from_sprite(
-                    ctx.resource_ids.zorb.as_ref().unwrap().sprite,
-                    ctx.resource_ids.zorb.as_ref().unwrap().anim_body_walk,
-                ),
-                SpriteAnim::from_sprite(
-                    ctx.resource_ids.zorb.as_ref().unwrap().sprite,
-                    ctx.resource_ids.zorb.as_ref().unwrap().anim_face_cute,
-                ),
-            ]),
-        );
-
-        pool.next.ecs.overwrite_follow_for(
-            pool.prev.zorb,
-            Follow {
-                stop_after_arriving: true,
-                target_entity: follow_entity,
-            },
-        );
+        // let follow_pos = ctx.camera.screen_to_world_point(&left_mouse.pos);
+        // let follow_entity = EntitySpawner::new()
+        //     .with_pos(follow_pos)
+        //     .spawn(&mut pool.next.ecs);
+        //
+        // pool.next.ecs.overwrite_sprite_anims_for(
+        //     pool.prev.zorb,
+        //     SpriteAnims::from_array([
+        //         SpriteAnim::from_sprite(
+        //             ctx.resource_ids.zorb.as_ref().unwrap().sprite,
+        //             ctx.resource_ids.zorb.as_ref().unwrap().anim_body_walk,
+        //         ),
+        //         SpriteAnim::from_sprite(
+        //             ctx.resource_ids.zorb.as_ref().unwrap().sprite,
+        //             ctx.resource_ids.zorb.as_ref().unwrap().anim_face_cute,
+        //         ),
+        //     ]),
+        // );
+        //
+        // pool.next.ecs.overwrite_follow_for(
+        //     pool.prev.zorb,
+        //     Follow {
+        //         stop_after_arriving: true,
+        //         target_entity: follow_entity,
+        //     },
+        // );
 
         // TODO: notify entity to delete itself
     }

@@ -3,6 +3,7 @@ use sdl3::render::FRect;
 
 pub struct ScreenSpace;
 pub struct WorldSpace;
+pub struct TileSpace;
 
 /// A point on the screen
 pub type ScreenPoint = Point2D<f64, ScreenSpace>;
@@ -33,6 +34,21 @@ pub type WorldBox = Box2D<f64, WorldSpace>;
 
 /// A rect in the world
 pub type WorldRect = Rect<f64, WorldSpace>;
+
+/// A point in the tilemap
+pub type TilePoint = Point2D<u16, TileSpace>;
+
+/// A size in the tilemap
+pub type TileSize = Size2D<u16, TileSpace>;
+
+/// A vector in the tilemap
+pub type TileVector = Vector2D<u16, TileSpace>;
+
+/// A box in the tilemap
+pub type TileBox = Box2D<u16, TileSpace>;
+
+/// A rect in the tilemap
+pub type TileRect = Rect<u16, TileSpace>;
 
 /// Conversion functions between coordinates in the different libraries
 pub mod convert {

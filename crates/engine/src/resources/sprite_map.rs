@@ -285,7 +285,7 @@ pub struct Tileset {
 }
 
 impl Tileset {
-    const MASKS: [(u8, (usize, usize)); 16] = [
+    const MASKS: [(u8, (usize, usize)); 47] = [
         (NeighborMask::BOT, (0, 0)),
         (NeighborMask::BOT | NeighborMask::RIGHT, (1, 0)),
         (
@@ -317,31 +317,273 @@ impl Tileset {
         (NeighborMask::RIGHT, (1, 3)),
         (NeighborMask::RIGHT | NeighborMask::LEFT, (2, 3)),
         (NeighborMask::LEFT, (3, 3)),
-        // TODO: rest of the mask
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::RIGHT
+                | NeighborMask::LEFT
+                | NeighborMask::BOT,
+            (4, 0),
+        ),
+        (
+            NeighborMask::LEFT | NeighborMask::RIGHT | NeighborMask::BOT | NeighborMask::BOT_RIGHT,
+            (5, 0),
+        ),
+        (
+            NeighborMask::LEFT | NeighborMask::RIGHT | NeighborMask::BOT | NeighborMask::BOT_LEFT,
+            (6, 0),
+        ),
+        (
+            NeighborMask::TOP_RIGHT
+                | NeighborMask::TOP
+                | NeighborMask::RIGHT
+                | NeighborMask::LEFT
+                | NeighborMask::BOT,
+            (7, 0),
+        ),
+        (
+            NeighborMask::TOP | NeighborMask::RIGHT | NeighborMask::BOT | NeighborMask::BOT_RIGHT,
+            (4, 1),
+        ),
+        (
+            NeighborMask::TOP
+                | NeighborMask::TOP_RIGHT
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT_LEFT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_RIGHT,
+            (5, 1),
+        ),
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT_LEFT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_RIGHT,
+            (6, 1),
+        ),
+        (
+            NeighborMask::TOP | NeighborMask::LEFT | NeighborMask::BOT_LEFT | NeighborMask::BOT,
+            (7, 1),
+        ),
+        (
+            NeighborMask::TOP | NeighborMask::TOP_RIGHT | NeighborMask::RIGHT | NeighborMask::BOT,
+            (4, 2),
+        ),
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::TOP_RIGHT
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_RIGHT,
+            (5, 2),
+        ),
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::TOP_RIGHT
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT_LEFT
+                | NeighborMask::BOT,
+            (6, 2),
+        ),
+        (
+            NeighborMask::TOP_LEFT | NeighborMask::TOP | NeighborMask::LEFT | NeighborMask::BOT,
+            (7, 2),
+        ),
+        (
+            NeighborMask::TOP
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT_LEFT
+                | NeighborMask::BOT,
+            (4, 3),
+        ),
+        (
+            NeighborMask::TOP | NeighborMask::TOP_RIGHT | NeighborMask::LEFT | NeighborMask::RIGHT,
+            (5, 3),
+        ),
+        (
+            NeighborMask::TOP_LEFT | NeighborMask::TOP | NeighborMask::LEFT | NeighborMask::RIGHT,
+            (6, 3),
+        ),
+        (
+            NeighborMask::TOP
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_RIGHT,
+            (7, 3),
+        ),
+        (
+            NeighborMask::RIGHT | NeighborMask::BOT | NeighborMask::BOT_RIGHT,
+            (8, 0),
+        ),
+        (
+            NeighborMask::TOP
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT_RIGHT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_LEFT,
+            (9, 0),
+        ),
+        (
+            NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT_RIGHT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_LEFT,
+            (10, 0),
+        ),
+        (
+            NeighborMask::LEFT | NeighborMask::BOT_LEFT | NeighborMask::BOT,
+            (11, 0),
+        ),
+        (
+            NeighborMask::TOP
+                | NeighborMask::TOP_RIGHT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_RIGHT,
+            (8, 1),
+        ),
+        (
+            NeighborMask::TOP
+                | NeighborMask::TOP_RIGHT
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT_LEFT
+                | NeighborMask::BOT,
+            (9, 1),
+        ),
+        // SKIP, hole
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::LEFT
+                | NeighborMask::BOT_LEFT
+                | NeighborMask::BOT,
+            (11, 1),
+        ),
+        (
+            NeighborMask::TOP
+                | NeighborMask::TOP_RIGHT
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_RIGHT,
+            (8, 2),
+        ),
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::TOP_RIGHT
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT_LEFT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_RIGHT,
+            (9, 2),
+        ),
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT
+                | NeighborMask::BOT_RIGHT,
+            (10, 2),
+        ),
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::LEFT
+                | NeighborMask::RIGHT
+                | NeighborMask::BOT_LEFT
+                | NeighborMask::BOT,
+            (11, 2),
+        ),
+        (
+            NeighborMask::TOP | NeighborMask::TOP_RIGHT | NeighborMask::RIGHT,
+            (8, 3),
+        ),
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::TOP_RIGHT
+                | NeighborMask::RIGHT
+                | NeighborMask::LEFT,
+            (9, 3),
+        ),
+        (
+            NeighborMask::TOP_LEFT
+                | NeighborMask::TOP
+                | NeighborMask::TOP_RIGHT
+                | NeighborMask::RIGHT
+                | NeighborMask::LEFT
+                | NeighborMask::BOT,
+            (10, 3),
+        ),
+        (
+            NeighborMask::TOP_LEFT | NeighborMask::TOP | NeighborMask::LEFT,
+            (11, 3),
+        ),
     ];
 
     /// Get the index of the neighbor mask in a tileset
     pub fn rect_of(neighbor_mask: NeighborMask) -> (usize, usize) {
-        // OPTIMIZE: this can be optimized as an array or hashmap
+        // OPTIMIZE: this can be optimized as a pre-computed array or hashmap
+        let t = neighbor_mask.0 & NeighborMask::TOP;
+        let b = neighbor_mask.0 & NeighborMask::BOT;
+        let l = neighbor_mask.0 & NeighborMask::LEFT;
+        let r = neighbor_mask.0 & NeighborMask::RIGHT;
+
+        let tr_mask = if t != 0 && r != 0 {
+            NeighborMask::TOP_RIGHT
+        } else {
+            NeighborMask::EMPTY
+        };
+        let tl_mask = if t != 0 && l != 0 {
+            NeighborMask::TOP_LEFT
+        } else {
+            NeighborMask::EMPTY
+        };
+        let br_mask = if b != 0 && r != 0 {
+            NeighborMask::BOT_RIGHT
+        } else {
+            NeighborMask::EMPTY
+        };
+        let bl_mask = if b != 0 && l != 0 {
+            NeighborMask::BOT_LEFT
+        } else {
+            NeighborMask::EMPTY
+        };
+
+        let tr = neighbor_mask.0 & tr_mask;
+        let tl = neighbor_mask.0 & tl_mask;
+        let br = neighbor_mask.0 & br_mask;
+        let bl = neighbor_mask.0 & bl_mask;
+
+        let filter = t | b | l | r | tr | tl | br | bl;
+
+        let filtered = neighbor_mask.0 & filter;
+
         Self::MASKS
             .iter()
-            .find(|(np, _)| *np == neighbor_mask.0)
-            .map(|(_, pos)| *pos)
-            .unwrap_or_else(|| {
-                let no_corners = neighbor_mask.0
-                    & (NeighborMask::LEFT
-                        | NeighborMask::RIGHT
-                        | NeighborMask::TOP
-                        | NeighborMask::BOT);
-                Self::MASKS
-                    .iter()
-                    .find(|(np, _)| *np == no_corners)
-                    .map(|(_, pos)| *pos)
-                    .unwrap_or_else(|| {
-                        eprintln!("Could not match neighbor mask: {}.", neighbor_mask.0);
-                        (0, 0)
-                    })
+            .find_map(|(mask, rect)| {
+                if *mask == filtered {
+                    return Some(*rect);
+                }
+                None
             })
+            .expect("mask should exist after filtering")
     }
 }
 

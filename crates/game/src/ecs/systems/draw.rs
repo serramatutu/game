@@ -3,7 +3,7 @@
 use allocator_api2::alloc::Allocator;
 use engine::coords::{WorldPoint, WorldRect, WorldSize, convert::screen_rect_to_sdl};
 
-use crate::{Ctx, consts::WORLD_TO_PIXEL, ecs::Ecs};
+use crate::{Ctx, coords::WORLD_TO_PIXEL, ecs::Ecs};
 
 pub fn update_and_render_terrain<'gs, A: Allocator + Clone>(
     ctx: &mut Ctx<'gs, A>,
