@@ -8,8 +8,10 @@ use crate::{
 /// A camera positioned somewhere in the world
 #[derive(Debug)]
 pub struct Camera {
+    zoom: f64,
+
     pub pos: WorldPoint,
-    pub zoom: f64,
+    pub zoom_factor: f64,
     pub min_zoom: f64,
     pub max_zoom: f64,
     pub world_to_pix: f64,
@@ -21,23 +23,26 @@ impl Camera {
         min_zoom: f64,
         max_zoom: f64,
         pos: WorldPoint,
+        zoom_factor: f64,
         world_to_pix_factor: f64,
     ) {
         self.pos = pos;
         self.zoom = 1.0;
         self.min_zoom = min_zoom;
         self.max_zoom = max_zoom;
+        self.zoom_factor = zoom_factor;
         self.world_to_pix = world_to_pix_factor;
     }
 
     /// Set the zoom around the top left corner to a value, clamping it between the max and min allowed zoom
     pub fn set_zoom(&mut self, new_zoom: f64) {
-        self.zoom = math::clamp(new_zoom, self.min_zoom, self.max_zoom);
+        let zoom = math::clamp(new_zoom, self.min_zoom, self.max_zoom);
+        self.zoom = zoom * self.zoom_factor;
     }
 
     /// Change the zoom around the top left corner by a delta, clamping it between the max and min allowed zoom.
     pub fn change_zoom(&mut self, delta: f64) {
-        self.set_zoom(self.zoom + delta);
+        self.set_zoom(self.zoom / self.zoom_factor + delta);
     }
 
     /// Change the zoom around the given point by a delta, clamping it between the max and min allowed zoom.
@@ -119,6 +124,7 @@ impl Default for Camera {
         Self {
             pos: WorldPoint::origin(),
             zoom: 1.0,
+            zoom_factor: 1.0,
             min_zoom: 1.0,
             max_zoom: 1.0,
             world_to_pix: 1.0,

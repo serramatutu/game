@@ -36,7 +36,7 @@ extern "Rust" fn init<'gs>(
 
     params
         .camera
-        .init(0.5, 30.0, WorldPoint::origin(), coords::WORLD_TO_PIXEL);
+        .init(0.5, 3.0, WorldPoint::origin(), 10.0, coords::WORLD_TO_PIXEL);
     params.camera.set_zoom(1.0);
 
     // NOTE: have to explicitly call default constructors as memory is initialized
@@ -137,16 +137,16 @@ extern "Rust" fn update_and_render<'gs>(
     }
 
     if params.events.key(sdl3::keyboard::Scancode::W).down {
-        ctx.camera.pos.y -= 300.0 * ctx.delta_ms as f64 / 1000.0;
+        ctx.camera.pos.y -= 30.0 * ctx.delta_ms as f64 / 1000.0;
     }
     if params.events.key(sdl3::keyboard::Scancode::S).down {
-        ctx.camera.pos.y += 300.0 * ctx.delta_ms as f64 / 1000.0;
+        ctx.camera.pos.y += 30.0 * ctx.delta_ms as f64 / 1000.0;
     }
     if params.events.key(sdl3::keyboard::Scancode::A).down {
-        ctx.camera.pos.x -= 300.0 * ctx.delta_ms as f64 / 1000.0;
+        ctx.camera.pos.x -= 30.0 * ctx.delta_ms as f64 / 1000.0;
     }
     if params.events.key(sdl3::keyboard::Scancode::D).down {
-        ctx.camera.pos.x += 300.0 * ctx.delta_ms as f64 / 1000.0;
+        ctx.camera.pos.x += 30.0 * ctx.delta_ms as f64 / 1000.0;
     }
     if params.events.key(sdl3::keyboard::Scancode::Z).down {
         ctx.camera
