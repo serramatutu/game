@@ -41,6 +41,9 @@ _timestamp-game:
 clean-libs:
   rm target/{{target}}/libgame.so.*
 
+codegen:
+  cargo xtask codegen
+
 res target:
   aseprite {{aseprite_args}} --sheet-type packed resources/src/{{target}}.aseprite --sheet resources/obj/{{target}}.png --data resources/obj/{{target}}.ase.json
   cargo xtask ase-to-res {{target}}

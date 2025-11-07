@@ -4,6 +4,8 @@ use allocator_api2::alloc::Global as GlobalAllocator;
 use clap::{Parser, Subcommand};
 use engine::resources::sprite_map::ase_to_res;
 
+mod codegen;
+
 /// Game build system and task runner helper
 #[derive(Subcommand, Debug)]
 enum Commands {
@@ -12,6 +14,9 @@ enum Commands {
         /// The resource name
         name: String,
     },
+
+    /// Run all code generation tasks
+    Codegen,
 }
 
 /// Game build system and task runner helper
@@ -33,6 +38,7 @@ fn main() -> Result<(), String> {
                 PathBuf::from(name).as_path(),
             )?;
         }
+        Commands::Codegen => codegen::tile_arrays::gen_code(),
     }
 
     Ok(())

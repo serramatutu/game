@@ -3,6 +3,9 @@ use std::ops::{BitAnd, BitOr};
 use derivative::Derivative;
 use heapless::Vec;
 
+mod mask;
+pub(crate) use mask::MASKS;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct NeighborMask(pub u8);
 
