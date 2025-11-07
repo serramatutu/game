@@ -16,6 +16,9 @@ heapless = { workspace = true }
 sdl3 = { workspace = true }
 paste = { workspace = true }
 
-
 [features]
 nightly = []
+
+[lints]
+workspace = true
+

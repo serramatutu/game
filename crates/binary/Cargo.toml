@@ -16,3 +16,6 @@ libloading = { workspace = true }
 
 [features]
 nightly = []
+
+[lints]
+workspace = true
