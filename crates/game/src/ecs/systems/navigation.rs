@@ -1,6 +1,10 @@
 //! Pathfinding, navigation etc
 
-use crate::{Ctx, ecs::Ecs};
+use crate::{
+    Ctx,
+    ecs::Ecs,
+    ecs::components::{Components, Follow, Pos},
+};
 
 /// System to make an entity follow another
 pub mod follow {
@@ -14,9 +18,11 @@ pub mod follow {
         prev: &Ecs,
         next: &mut Ecs,
     ) -> anyhow::Result<()> {
-        for &(follower_id, follow) in prev.follow_iter() {
-            let follower_pos = prev.pos_for_unchecked(follower_id);
-            let target_pos = prev.pos_for_unchecked(follow.target_entity);
+        for (follower_id, follow) in prev.iter::<Follow>(Components::Follow) {
+            let follower_pos = prev.get::<Pos>(Components::Pos, follower_id).unwrap();
+            let target_pos = prev
+                .get::<Pos>(Components::Pos, follow.target_entity)
+                .unwrap();
 
             let diff = target_pos - follower_pos;
             let distance = diff.length();
@@ -27,14 +33,14 @@ pub mod follow {
             // distance per frame, so we just snap it to the target
             let new_pos = if distance < speed_per_frame * 1.5 {
                 if follow.stop_after_arriving {
-                    next.unset_follow_for(follower_id);
+                    next.unset::<Follow>(Components::Follow, follower_id);
                 }
                 target_pos
             } else {
                 follower_pos + diff.normalize() * speed_per_frame
             };
 
-            next.set_pos_for(follower_id, new_pos);
+            next.set::<Pos>(Components::Pos, follower_id, new_pos);
         }
         Ok(())
     }

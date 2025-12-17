@@ -1,6 +1,10 @@
 //! Debugging utilities
 
-use crate::{Ctx, ecs::Ecs};
+use crate::{
+    Ctx,
+    ecs::Ecs,
+    ecs::components::{Components, DebugFlags, Pos},
+};
 
 /// System to draw debug squares around entities
 pub mod draw {
@@ -13,8 +17,8 @@ pub mod draw {
         prev: &Ecs,
         _next: &mut Ecs,
     ) -> anyhow::Result<()> {
-        for &(entity_id, pos) in prev.pos_iter() {
-            let Some(dbg_flags) = prev.debug_for(entity_id) else {
+        for (entity_id, pos) in prev.iter::<Pos>(Components::Pos) {
+            let Some(dbg_flags) = prev.get::<DebugFlags>(Components::DebugFlags, entity_id) else {
                 continue;
             };
 

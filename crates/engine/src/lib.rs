@@ -1,6 +1,7 @@
 pub mod animation;
 pub mod camera;
 pub mod coords;
+pub mod ecs;
 pub mod events;
 pub mod hooks;
 pub mod math;

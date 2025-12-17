@@ -2,7 +2,10 @@ use derivative::Derivative;
 use engine::{camera::Camera, resources::Resources};
 use sdl3::render::WindowCanvas;
 
-use crate::{ecs::Ecs, spawnables};
+use crate::{
+    ecs::{Ecs, EntityId},
+    spawnables,
+};
 
 /// The map of known resource IDs
 pub(crate) struct ResourceIds {
@@ -16,8 +19,8 @@ pub(crate) struct ResourceIds {
 pub(crate) struct State {
     // World objects
     pub ecs: Ecs,
-    pub zorb: usize,
-    pub terrain: usize,
+    pub zorb: EntityId,
+    pub terrain: EntityId,
 }
 
 /// The global memory block that is used by the game
@@ -30,7 +33,6 @@ pub(crate) struct MemoryPool {
 }
 
 /// A context object that can be passed around throughout the game
-#[expect(dead_code)]
 pub(crate) struct Ctx<'gs> {
     pub canvas: &'gs mut WindowCanvas,
     pub camera: &'gs mut Camera,

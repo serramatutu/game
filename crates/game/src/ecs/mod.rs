@@ -1,46 +1,134 @@
-use crate::{Ctx, with_components};
-use anyhow::Result;
-use derivative::Derivative;
-use engine::types::Reset;
-use heapless::Vec;
-use paste::paste;
-use std::iter::Iterator;
-
-pub mod components;
-pub use components::Entity;
-
-pub mod systems;
-use systems::SystemFn;
-
-/// The sentinel value used to represent an entity not having a component or the null entity
-pub const SENTINEL: usize = 0;
-
-/// The max number of entities in the world at a time
-const MAX_ENTITIES: usize = 8192;
-
-/// Holds all the entities, components and systems of the ECS.
-///
-/// INVARIANTS:
-/// - The zero index of each component list is a dummy that is initialized with
-///   default and should not belong to any entity.
-/// - The zero index entity is a null entity that is never in the world.
-#[derive(Derivative, Debug)]
-#[derivative(Clone(clone_from = "true"))]
-pub struct Ecs {
-    components: components::Components,
-    entities: Vec<Entity, MAX_ENTITIES>,
-}
+use std::any::Any;
 
 #[cfg(debug_assertions)]
-const NUM_SYSTEMS: usize = 4;
-#[cfg(not(debug_assertions))]
-const NUM_SYSTEMS: usize = 3;
+use crate::ecs::components::DebugFlags;
+use crate::{
+    Ctx,
+    ecs::components::{Components, Follow, Pos, SpriteAnims, Terrain},
+};
+mod systems;
 
-impl Ecs {
-    /// All the registered ECS systems
-    ///
-    /// They execute in order from top to bottom
-    const SYSTEMS: [SystemFn; NUM_SYSTEMS] = [
+#[macro_use]
+pub mod components {
+    use engine::{
+        animation::AnimationCursor,
+        coords::WorldPoint,
+        ecs::EntityId,
+        resources::sprite_map::{SpriteMapAnimation, SpriteMapIdMarker},
+        tile_map::TileMap,
+        types::Id,
+    };
+    use heapless::Vec;
+    use sdl3::pixels::Color;
+
+    pub type Pos = WorldPoint;
+
+    #[derive(Clone, Default, Debug)]
+    pub struct Tile(pub bool);
+
+    #[derive(Clone, Default, Debug)]
+    pub struct Terrain {
+        pub tiles: TileMap<Tile>,
+    }
+
+    pub const MAX_ANIM_PER_ENTITY: usize = 4;
+
+    #[derive(Copy, Clone, Default, Debug)]
+    pub struct SpriteAnim {
+        pub sprite: Id<SpriteMapIdMarker>,
+        pub anim: Id<SpriteMapAnimation>,
+        pub cursor: AnimationCursor,
+    }
+
+    impl SpriteAnim {
+        pub fn from_sprite(sprite: Id<SpriteMapIdMarker>, anim: Id<SpriteMapAnimation>) -> Self {
+            Self {
+                sprite,
+                anim,
+                ..Default::default()
+            }
+        }
+    }
+
+    pub type SpriteAnims = Vec<SpriteAnim, MAX_ANIM_PER_ENTITY>;
+
+    #[derive(Copy, Clone, Default, Debug)]
+    pub struct Follow {
+        pub stop_after_arriving: bool,
+        pub target_entity: EntityId,
+    }
+
+    #[derive(Copy, Clone, Default, Debug)]
+    pub struct DebugFlags {
+        pub box_color: Option<Color>,
+    }
+
+    #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+    pub enum Components {
+        Pos,
+        Tile,
+        Terrain,
+        SpriteAnims,
+        Follow,
+        #[cfg(debug_assertions)]
+        DebugFlags,
+    }
+
+    #[macro_export]
+    macro_rules! with_components {
+        ($inner_macro:ident) => {
+            $inner_macro! {
+                $crate::ecs::components::DebugFlags,
+                $crate::ecs::components::Follow,
+                $crate::ecs::components::Pos,
+                $crate::ecs::components::SpriteAnims,
+                $crate::ecs::components::Terrain
+            }
+        };
+    }
+}
+
+fn dyn_add(ecs: &mut Ecs, key: components::Components, entity_id: EntityId, value: &dyn EcsAny) {
+    macro_rules! impl_dyn_add {
+        ( $( $component:ty ),+ ) => {
+
+            $(
+                if let Some(value) = (value as &dyn Any).downcast_ref::<$component>() {
+                    ecs.add::<$component>(key, entity_id, value.clone());
+                    return;
+                }
+            )*
+
+        };
+    }
+
+    with_components!(impl_dyn_add);
+}
+
+pub use engine::ecs::EntityId;
+use engine::ecs::{ComponentInit, EcsAny};
+
+pub type Ecs = engine::ecs::Ecs<Components>;
+
+pub fn create_ecs() -> Ecs {
+    let components = [
+        #[cfg(debug_assertions)]
+        ComponentInit::new(Components::DebugFlags, DebugFlags::default()),
+        ComponentInit::new(Components::Follow, Follow::default()),
+        ComponentInit::new(Components::Pos, Pos::default()),
+        ComponentInit::new(Components::SpriteAnims, SpriteAnims::default()),
+        ComponentInit::new(Components::Terrain, Terrain::default()),
+    ];
+
+    Ecs::new(components.into_iter(), dyn_add)
+}
+
+pub fn update_and_render<'gs>(
+    ctx: &mut Ctx<'gs>,
+    prev: &Ecs,
+    next: &mut Ecs,
+) -> anyhow::Result<()> {
+    let systems = [
         systems::navigation::follow::update_and_render,
         systems::draw::update_and_render_terrain,
         systems::draw::update_and_render_animations,
@@ -48,244 +136,9 @@ impl Ecs {
         systems::debug::draw::update_and_render,
     ];
 
-    fn get_component<T: Copy>(components: &[(usize, T)], idx: usize) -> Option<T> {
-        match idx {
-            SENTINEL => None,
-            _ => Some(components[idx].1),
-        }
+    for sys in systems {
+        sys(ctx, prev, next)?
     }
 
-    fn get_component_ref<T>(components: &[(usize, T)], idx: usize) -> Option<&T> {
-        match idx {
-            SENTINEL => None,
-            _ => Some(&components[idx].1),
-        }
-    }
-
-    fn get_component_mut<T>(components: &mut [(usize, T)], idx: usize) -> Option<&mut T> {
-        match idx {
-            SENTINEL => None,
-            _ => Some(&mut components[idx].1),
-        }
-    }
-
-    pub fn update_and_render<'gs>(&mut self, ctx: &mut Ctx<'gs>, prev: &Ecs) -> Result<()> {
-        for sys in Self::SYSTEMS {
-            sys(ctx, prev, self)?;
-        }
-        Ok(())
-    }
+    Ok(())
 }
-
-impl Reset for Ecs {
-    fn reset(&mut self) {
-        self.components.reset();
-        self.entities.resize(1, Default::default()).unwrap();
-    }
-}
-
-macro_rules! impl_accessor_copy {
-    // cheap_copy
-    ($attr:ident, $type:ty, true, $max:tt) => {
-        paste! {
-            #[allow(dead_code)]
-            pub fn [<$attr _for>](&self, entity_id: usize) -> Option<$type> {
-                debug_assert!(entity_id != SENTINEL);
-
-                let attr_idx = self.entities[entity_id].$attr;
-                Self::get_component(&self.components.$attr, attr_idx)
-            }
-
-            #[allow(dead_code)]
-            pub fn [<$attr _for_unchecked>](&self, entity_id: usize) -> $type {
-                debug_assert!(entity_id != SENTINEL);
-
-                let attr_idx = self.entities[entity_id].$attr;
-                debug_assert!(attr_idx != SENTINEL, concat!("Tried to get '",stringify!($attr),"' attribute from entity that does not contain it."));
-                self.components.$attr[attr_idx].1
-            }
-        }
-    };
-
-    // expensive copy
-    ($attr:ident, $type:ty, false, $max:tt) => {
-        paste! {
-            #[allow(dead_code)]
-            pub fn [<$attr _for>](&self, entity_id: usize) -> Option<&$type> {
-                debug_assert!(entity_id != SENTINEL);
-
-                let attr_idx = self.entities[entity_id].$attr;
-                Self::get_component_ref(&self.components.$attr, attr_idx)
-            }
-
-            #[allow(dead_code)]
-            pub fn [<$attr _for_unchecked>](&self, entity_id: usize) -> &$type {
-                debug_assert!(entity_id != SENTINEL);
-
-                let attr_idx = self.entities[entity_id].$attr;
-                debug_assert!(attr_idx != SENTINEL, concat!("Tried to get '",stringify!($attr),"' attribute from entity that does not contain it."));
-                &self.components.$attr[attr_idx].1
-            }
-        }
-    };
-}
-
-/// Helper to create a getter for a component type in the `Ecs` struct
-macro_rules! impl_accessor {
-    ($attr:ident, $type:ty, $cheap_copy:tt, $max:tt) => {
-        paste! {
-            fn [<push_ $attr _unchecked>]<const N: usize>(components: &mut Vec<(usize, $type), N>, entity_id: usize, entity: &mut Entity, value: $type) {
-                debug_assert!(entity_id != SENTINEL);
-
-                let component_id = components.len();
-                components.push((entity_id, value)).expect("Too many components.");
-                entity.$attr = component_id;
-            }
-
-            #[allow(dead_code)]
-            pub fn [<$attr _for_mut>](&mut self, entity_id: usize) -> Option<&mut $type> {
-                debug_assert!(entity_id != SENTINEL);
-
-                let attr_idx = self.entities[entity_id].$attr;
-                Self::get_component_mut(&mut self.components.$attr, attr_idx)
-            }
-
-            #[allow(dead_code)]
-            pub fn [<$attr _for_mut_unchecked>](&mut self, entity_id: usize) -> &mut $type {
-                debug_assert!(entity_id != SENTINEL);
-
-                let attr_idx = self.entities[entity_id].$attr;
-                debug_assert!(attr_idx != SENTINEL, concat!("Tried to get mut '",stringify!($attr),"' in entity that does not contain it."));
-                &mut self.components.$attr[attr_idx].1
-            }
-
-            #[allow(dead_code)]
-            pub fn [<set_ $attr _for>](&mut self, entity_id: usize, val: $type) {
-                debug_assert!(entity_id != SENTINEL);
-
-                let attr_idx = self.entities[entity_id].$attr;
-                debug_assert!(attr_idx != SENTINEL, concat!("Tried to set '",stringify!($attr),"' in entity that does not contain it."));
-                self.components.$attr[attr_idx].1 = val;
-            }
-
-            #[allow(dead_code)]
-            pub fn [<unset_ $attr _for>](&mut self, entity_id: usize) -> $type {
-                debug_assert!(entity_id != SENTINEL);
-
-                let attr_idx = {
-                    let entity = &mut self.entities[entity_id];
-                    let attr_idx = entity.$attr;
-                    debug_assert!(attr_idx != SENTINEL, concat!("Tried to unset '",stringify!($attr),"' but it's already unset."));
-
-                    entity.$attr = SENTINEL;
-                    attr_idx
-                };
-
-                let (removed_entity_id, removed) = self.components.$attr.swap_remove(attr_idx);
-                debug_assert!(removed_entity_id == entity_id);
-
-                // rewire indexes in the other entity that got swapped if it was not the last
-                if attr_idx < self.components.$attr.len() {
-                    let (swapped_entity_id, _) = self.components.$attr[attr_idx];
-                    self.entities[swapped_entity_id].$attr = attr_idx;
-                }
-
-                removed
-            }
-
-            #[allow(dead_code)]
-            pub fn [<overwrite_ $attr _for>](&mut self, entity_id: usize, val: $type) {
-                debug_assert!(entity_id != SENTINEL);
-
-                let attr_idx = self.entities[entity_id].$attr;
-                match attr_idx {
-                    SENTINEL => {
-                        Self::[<push_ $attr _unchecked>](&mut self.components.$attr, entity_id, &mut self.entities[entity_id], val);
-                    }
-                    _ => {
-                        self.components.$attr[attr_idx].1 = val;
-                    }
-                }
-            }
-
-            #[allow(dead_code)]
-            pub fn [<$attr _iter>](&self) -> impl Iterator<Item = &(usize, $type)> {
-                // skip the sentinel
-                self.components.$attr.iter().skip(1)
-            }
-        }
-    };
-}
-
-/// Implement all accesssors for all the component types
-macro_rules! impl_accessors {
-    ( $( ($attr:ident, $type:ty, $cheap_copy:tt, $max:tt) ),+ ) => {
-        $(
-            impl_accessor_copy!($attr, $type, $cheap_copy, $max);
-            impl_accessor!($attr, $type, $cheap_copy, $max);
-        )*
-    }
-}
-
-impl Ecs {
-    with_components!(impl_accessors);
-}
-
-/// Impleent the entity spawner with all possible components
-macro_rules! impl_entity_spawner {
-    ( $( ($attr:ident, $type:ty, $cheap_copy:tt, $max:tt) ),+ ) => {
-
-        /// Constructs an entity by adding components to it
-        #[derive(Default)]
-        pub struct EntitySpawner {
-            $(
-                $attr: Option<$type>,
-            )*
-        }
-
-        impl EntitySpawner {
-            $(
-                paste! {
-                    #[doc= concat!("Add the default", stringify!($attr) , " value to the spawned entity")]
-                    #[allow(dead_code)]
-                    pub fn [<with_ $attr _default>](mut self) -> Self {
-                        self.$attr = Some(Default::default());
-                        self
-                    }
-
-                    #[doc= concat!("Add ", stringify!($attr) , " to the spawned entity")]
-                    #[allow(dead_code)]
-                    pub fn [<with_ $attr>](mut self, value: $type) -> Self {
-                        self.$attr = Some(value);
-                        self
-                    }
-                }
-            )*
-
-            pub fn new() -> Self {
-                Default::default()
-            }
-
-            /// Spawn the entity into the ECS world
-            pub fn spawn(self, ecs: &mut Ecs) -> usize {
-                let entity_id = ecs.entities.len();
-                // FIXME: what to do when there are too many entities that get spawned? Fail
-                // silently?
-                ecs.entities.push(Default::default()).unwrap_or_else(|_| panic!("Too many entities"));
-                let entity = &mut ecs.entities[entity_id];
-
-                $(
-                    if let Some(value) = self.$attr {
-                        paste! {
-                            Ecs::[<push_ $attr _unchecked>](&mut ecs.components.$attr, entity_id, entity, value);
-                        }
-                    }
-                )*
-
-                entity_id
-            }
-        }
-    }
-}
-
-with_components!(impl_entity_spawner);
