@@ -2,7 +2,14 @@
 
 use engine::coords::{WorldPoint, WorldRect, WorldSize, convert::screen_rect_to_sdl};
 
-use crate::{Ctx, coords::WORLD_TO_PIXEL, ecs::Ecs};
+use crate::{
+    Ctx,
+    coords::WORLD_TO_PIXEL,
+    ecs::{
+        Ecs,
+        components::{Components, Pos, SpriteAnims, Terrain},
+    },
+};
 
 pub fn update_and_render_terrain<'gs>(
     ctx: &mut Ctx<'gs>,
@@ -18,7 +25,7 @@ pub fn update_and_render_terrain<'gs>(
 
     let block_width_world = WORLD_TO_PIXEL / tileset.grid_size as f64;
 
-    for (_, terrain) in prev.terrain_iter() {
+    for (_, terrain) in prev.iter_refs::<Terrain>(Components::Terrain) {
         // OPTIMIZE: use a pre-computed sprite that gets saved between frames
         for x in 1..terrain.tiles.size() {
             for y in 1..terrain.tiles.size() {
@@ -56,11 +63,11 @@ pub fn update_and_render_animations<'gs>(
     prev: &Ecs,
     next: &mut Ecs,
 ) -> anyhow::Result<()> {
-    for (entity_id, prev_anims) in prev.sprite_anims_iter() {
-        let entity_id = *entity_id;
-
-        let pos = prev.pos_for_unchecked(entity_id);
-        let next_anims = next.sprite_anims_for_mut_unchecked(entity_id);
+    for (entity_id, prev_anims) in prev.iter_refs::<SpriteAnims>(Components::SpriteAnims) {
+        let pos = prev.get::<Pos>(Components::Pos, entity_id).unwrap();
+        let next_anims = next
+            .get_mut::<SpriteAnims>(Components::SpriteAnims, entity_id)
+            .unwrap();
 
         for (prev_anim, next_anim) in prev_anims.iter().zip(next_anims) {
             let sprite = ctx.resources.sprites.get(prev_anim.sprite);

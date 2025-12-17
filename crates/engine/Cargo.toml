@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 derivative = { workspace = true }
+dyn-clone = { workspace = true }
 euclid = { workspace = true }
 heapless = { workspace = true }
 sdl3 = { workspace = true }

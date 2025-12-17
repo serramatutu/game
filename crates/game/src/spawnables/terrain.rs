@@ -1,4 +1,5 @@
 use engine::{
+    ecs::EntityTemplate,
     resources::{
         Resources,
         manager::ResourceError,
@@ -10,8 +11,8 @@ use engine::{
 use crate::{
     Ctx,
     ecs::{
-        Ecs, EntitySpawner,
-        components::{Terrain, Tile},
+        Ecs, EntityId,
+        components::{Components, Pos, Terrain, Tile},
     },
 };
 
@@ -45,11 +46,12 @@ fn generate() -> Terrain {
     terrain
 }
 
-pub fn spawn<'gs>(_ctx: &mut Ctx<'gs>, ecs: &mut Ecs) -> usize {
+pub fn spawn<'gs>(_ctx: &mut Ctx<'gs>, ecs: &mut Ecs) -> EntityId {
     let terrain = generate();
 
-    EntitySpawner::new()
-        .with_pos_default()
-        .with_terrain(terrain)
-        .spawn(ecs)
+    ecs.spawn(
+        &EntityTemplate::new()
+            .with(Components::Pos, Pos::default())
+            .with(Components::Terrain, terrain),
+    )
 }

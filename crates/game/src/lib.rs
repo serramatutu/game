@@ -10,13 +10,13 @@ use std::path::PathBuf;
 use std::ptr::NonNull;
 
 use anyhow::{Result, anyhow};
-use ecs::components::{Follow, SpriteAnim, SpriteAnims};
-use ecs::{EntitySpawner, SENTINEL};
+use ecs::EntityId;
 use engine::coords::WorldPoint;
 use engine::hooks::{DropParams, InitParams, UpdateAndRenderParams};
-use engine::types::Reset;
 
 use global_state::{Ctx, MemoryPool};
+
+use crate::ecs::components::{Components, Terrain};
 
 #[unsafe(no_mangle)]
 extern "Rust" fn init<'gs>(params: &'gs mut InitParams<'gs, 'gs>) -> Result<NonNull<u8>> {
@@ -34,8 +34,8 @@ extern "Rust" fn init<'gs>(params: &'gs mut InitParams<'gs, 'gs>) -> Result<NonN
 
     // NOTE: have to explicitly call default constructors as memory is initialized
     // with zeros
-    pool.prev.ecs.reset();
-    pool.next.ecs.reset();
+    pool.prev.ecs = ecs::create_ecs();
+    pool.next.ecs = ecs::create_ecs();
 
     pool.resource_ids.terrain = Some(spawnables::terrain::load_resources(params.resources)?);
     pool.resource_ids.zorb = Some(spawnables::zorb::load_resources(params.resources)?);
@@ -75,12 +75,12 @@ extern "Rust" fn update_and_render<'gs>(
     }
 
     // generate tile map
-    if pool.prev.terrain == SENTINEL {
+    if pool.prev.terrain == EntityId::null() {
         pool.next.terrain = spawnables::terrain::spawn(&mut ctx, &mut pool.next.ecs);
     }
 
     // let right_mouse = params.events.mouse_btn(sdl3::mouse::MouseButton::Right);
-    // if right_mouse.down && pool.prev.zorb == SENTINEL {
+    // if right_mouse.down && pool.prev.zorb == EntityId::null() {
     //     pool.next.zorb = spawnables::zorb::spawn(&mut ctx, &mut pool.next.ecs);
     // }
 
@@ -89,7 +89,11 @@ extern "Rust" fn update_and_render<'gs>(
         let world_pos = ctx.camera.screen_to_world_point(&left_mouse.pos);
         let tile_pos = coords::world_to_tile(world_pos);
 
-        let terrain = pool.next.ecs.terrain_for_mut_unchecked(pool.prev.terrain);
+        let terrain = pool
+            .next
+            .ecs
+            .get_mut::<Terrain>(Components::Terrain, pool.prev.terrain)
+            .unwrap();
         let tile = terrain
             .tiles
             .get_mut(tile_pos.x as usize, tile_pos.y as usize);
@@ -147,7 +151,7 @@ extern "Rust" fn update_and_render<'gs>(
             .change_zoom_around(-(ctx.delta_ms as f64) / 1000.0, params.events.mouse_pos);
     }
 
-    pool.next.ecs.update_and_render(&mut ctx, &pool.prev.ecs)?;
+    ecs::update_and_render(&mut ctx, &pool.prev.ecs, &mut pool.next.ecs)?;
     pool.prev.clone_from(&pool.next);
 
     Ok(true)
