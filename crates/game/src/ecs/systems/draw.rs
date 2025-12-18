@@ -1,14 +1,13 @@
 //! Drawing, animation and rendering systems
 
-use allocator_api2::alloc::Allocator;
 use engine::coords::{WorldPoint, WorldRect, WorldSize, convert::screen_rect_to_sdl};
 
 use crate::{Ctx, coords::WORLD_TO_PIXEL, ecs::Ecs};
 
-pub fn update_and_render_terrain<'gs, A: Allocator + Clone>(
-    ctx: &mut Ctx<'gs, A>,
-    prev: &Ecs<A>,
-    _next: &mut Ecs<A>,
+pub fn update_and_render_terrain<'gs>(
+    ctx: &mut Ctx<'gs>,
+    prev: &Ecs,
+    _next: &mut Ecs,
 ) -> anyhow::Result<()> {
     let Some(res) = &ctx.resource_ids.terrain else {
         return Ok(());
@@ -52,10 +51,10 @@ pub fn update_and_render_terrain<'gs, A: Allocator + Clone>(
     Ok(())
 }
 
-pub fn update_and_render_animations<'gs, A: Allocator + Clone>(
-    ctx: &mut Ctx<'gs, A>,
-    prev: &Ecs<A>,
-    next: &mut Ecs<A>,
+pub fn update_and_render_animations<'gs>(
+    ctx: &mut Ctx<'gs>,
+    prev: &Ecs,
+    next: &mut Ecs,
 ) -> anyhow::Result<()> {
     for (entity_id, prev_anims) in prev.sprite_anims_iter() {
         let entity_id = *entity_id;

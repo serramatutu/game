@@ -1,20 +1,15 @@
 //! The game dylib's main entrypoint
-//!
-//! ALLOCATOR: To simplify things, we're fooling rust by telling it we're using the
-//! `GlobalAllocator` everywhere. In practice, we're actually using the allocator
-//! supplied by the main executable, which may be different. As long as we are careful
-//! in the functions here, everything elswhere should work.
 
 mod coords;
 mod ecs;
 mod global_state;
 mod spawnables;
 
+use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::path::PathBuf;
 use std::ptr::NonNull;
 
-use allocator_api2::alloc::{Allocator, Global as GlobalAllocator, Layout};
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use ecs::components::{Follow, SpriteAnim, SpriteAnims};
 use ecs::{EntitySpawner, SENTINEL};
 use engine::coords::WorldPoint;
@@ -24,13 +19,11 @@ use engine::types::Reset;
 use global_state::{Ctx, MemoryPool};
 
 #[unsafe(no_mangle)]
-extern "Rust" fn init<'gs>(
-    params: &'gs mut InitParams<'gs, 'gs, GlobalAllocator>,
-) -> Result<NonNull<[u8]>> {
-    let layout = Layout::new::<MemoryPool<GlobalAllocator>>();
-    let ptr = params.allocator.allocate(layout)?;
-
-    let pool = unsafe { ptr.cast::<MemoryPool<GlobalAllocator>>().as_mut() };
+extern "Rust" fn init<'gs>(params: &'gs mut InitParams<'gs, 'gs>) -> Result<NonNull<u8>> {
+    let layout = Layout::new::<MemoryPool>();
+    let ptr =
+        unsafe { NonNull::new(alloc_zeroed(layout)).ok_or_else(|| anyhow!("Failed to allocate"))? };
+    let pool = unsafe { ptr.cast::<MemoryPool>().as_mut() };
 
     params.resources.set_root(PathBuf::from("resources/obj"));
 
@@ -51,24 +44,21 @@ extern "Rust" fn init<'gs>(
 }
 
 #[unsafe(no_mangle)]
-extern "Rust" fn drop(params: DropParams<GlobalAllocator>) {
+extern "Rust" fn drop(params: DropParams) {
     // TODO: unload resources
-    let layout = Layout::new::<MemoryPool<GlobalAllocator>>();
+    let layout = Layout::new::<MemoryPool>();
     unsafe {
-        params
-            .allocator
-            .deallocate(params.memory.cast::<u8>(), layout);
+        dealloc(params.memory.as_ptr(), layout);
     }
 }
 
 #[unsafe(no_mangle)]
 extern "Rust" fn update_and_render<'gs>(
-    params: &'gs mut UpdateAndRenderParams<'gs, 'gs, GlobalAllocator>,
+    params: &'gs mut UpdateAndRenderParams<'gs, 'gs>,
 ) -> Result<bool> {
-    let pool = unsafe { params.memory.cast::<MemoryPool<GlobalAllocator>>().as_mut() };
+    let pool = unsafe { params.memory.cast::<MemoryPool>().as_mut() };
 
     let mut ctx = Ctx {
-        allocator: params.allocator,
         camera: params.camera,
         canvas: params.canvas,
         delta_ms: params.delta_ms,

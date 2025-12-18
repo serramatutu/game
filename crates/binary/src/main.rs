@@ -14,26 +14,23 @@ use thiserror::Error;
 
 use std::{fs, path::PathBuf, ptr::NonNull, time::Duration};
 
-use allocator_api2::alloc::{Allocator, Global as GlobalAllocator};
-
-struct Game<'a, A: Allocator + Clone> {
+struct Game<'a> {
     #[expect(clippy::type_complexity)]
-    init_fn: Symbol<'a, fn(params: &mut InitParams<A>) -> Result<NonNull<[u8]>>>,
-    drop_fn: Symbol<'a, fn(params: DropParams<A>)>,
-    #[expect(clippy::type_complexity)]
-    update_and_render_fn: Symbol<'a, fn(params: &mut UpdateAndRenderParams<A>) -> Result<bool>>,
+    init_fn: Symbol<'a, fn(params: &mut InitParams) -> Result<NonNull<u8>>>,
+    drop_fn: Symbol<'a, fn(params: DropParams)>,
+    update_and_render_fn: Symbol<'a, fn(params: &mut UpdateAndRenderParams) -> Result<bool>>,
 }
 
-impl<A: Allocator + Clone> Game<'_, A> {
-    pub fn init(&self, params: &mut InitParams<A>) -> Result<NonNull<[u8]>> {
+impl Game<'_> {
+    pub fn init(&self, params: &mut InitParams) -> Result<NonNull<u8>> {
         (self.init_fn)(params)
     }
 
-    pub fn drop(&self, params: DropParams<A>) {
+    pub fn drop(&self, params: DropParams) {
         (self.drop_fn)(params)
     }
 
-    pub fn update_and_render(&self, params: &mut UpdateAndRenderParams<A>) -> Result<bool> {
+    pub fn update_and_render(&self, params: &mut UpdateAndRenderParams) -> Result<bool> {
         (self.update_and_render_fn)(params)
     }
 }
@@ -50,8 +47,8 @@ pub enum LoadError {
     UndefinedLatest,
 }
 
-impl<A: Allocator + Clone> Game<'_, A> {
-    fn from_lib(lib: &Library) -> Result<Game<'_, A>, LoadError> {
+impl Game<'_> {
+    fn from_lib(lib: &Library) -> Result<Game<'_>, LoadError> {
         unsafe {
             let game = Game {
                 init_fn: lib.get(b"init").or(Err(LoadError::SymbolNotFound))?,
@@ -80,7 +77,7 @@ const WINDOW_HEIGHT: u16 = 1080;
 pub fn main() -> Result<()> {
     // unsafe { backtrace_on_stack_overflow::enable() }
 
-    let mut path = Game::<GlobalAllocator>::get_latest_library_path()?;
+    let mut path = Game::get_latest_library_path()?;
     let mut game_lib = unsafe {
         Library::new(path.clone()).map_err(|err| LoadError::FailedToLoadLibrary(err.to_string()))?
     };
@@ -112,13 +109,9 @@ pub fn main() -> Result<()> {
 
     let resource_root = PathBuf::from(".");
     let mut resources = Resources {
-        sprites: SpriteMapManager::new(
-            GlobalAllocator,
-            SpriteMapLoader::new(GlobalAllocator, tc2, resource_root),
-        ),
+        sprites: SpriteMapManager::new(SpriteMapLoader::new(tc2, resource_root)),
     };
     let mut init_params = InitParams {
-        allocator: GlobalAllocator,
         camera: &mut camera,
         resources: &mut resources,
     };
@@ -129,7 +122,7 @@ pub fn main() -> Result<()> {
     let mut prev_now_ms: u64 = 0;
 
     while !exit {
-        let new_path = Game::<GlobalAllocator>::get_latest_library_path()?;
+        let new_path = Game::get_latest_library_path()?;
         if new_path != path {
             path = new_path;
             sdl3::log::log_info(sdl3::log::Category::Application, "Reloading game");
@@ -155,7 +148,6 @@ pub fn main() -> Result<()> {
             tex_canvas.clear();
 
             let mut params = UpdateAndRenderParams {
-                allocator: GlobalAllocator,
                 canvas: tex_canvas,
                 events: &mut events,
                 camera: &mut camera,
@@ -181,7 +173,6 @@ pub fn main() -> Result<()> {
     // NOTE: from here onwards game_memory is dangling
     if let Some(game) = &game {
         game.drop(DropParams {
-            allocator: GlobalAllocator,
             memory: game_memory,
         });
     }

@@ -1,4 +1,3 @@
-use allocator_api2::alloc::Allocator;
 use engine::{
     resources::{
         Resources,
@@ -21,9 +20,7 @@ pub struct ResourceIds {
     pub tileset: Id<Tileset>,
 }
 
-pub fn load_resources<'r, A: Allocator + Clone>(
-    res: &'r Resources<'r, A>,
-) -> Result<ResourceIds, ResourceError> {
+pub fn load_resources<'r>(res: &'r Resources<'r>) -> Result<ResourceIds, ResourceError> {
     res.sprites
         .load("tiles/mask")?
         .and_then(|sprite_id, sprite| {
@@ -48,7 +45,7 @@ fn generate() -> Terrain {
     terrain
 }
 
-pub fn spawn<'gs, A: Allocator + Clone>(_ctx: &mut Ctx<'gs, A>, ecs: &mut Ecs<A>) -> usize {
+pub fn spawn<'gs>(_ctx: &mut Ctx<'gs>, ecs: &mut Ecs) -> usize {
     let terrain = generate();
 
     EntitySpawner::new()

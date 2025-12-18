@@ -5,5 +5,5 @@ pub mod draw;
 pub mod navigation;
 
 /// A system that can be called by the ECS
-pub type SystemFn<A> =
-    for<'gs> fn(ctx: &mut Ctx<'gs, A>, prev: &Ecs<A>, next: &mut Ecs<A>) -> anyhow::Result<()>;
+pub type SystemFn =
+    for<'gs> fn(ctx: &mut Ctx<'gs>, prev: &Ecs, next: &mut Ecs) -> anyhow::Result<()>;

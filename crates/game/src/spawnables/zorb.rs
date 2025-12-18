@@ -1,4 +1,3 @@
-use allocator_api2::alloc::Allocator;
 use engine::{
     coords::WorldPoint,
     resources::{
@@ -24,9 +23,7 @@ pub struct ResourceIds {
     pub anim_face_cute: Id<SpriteMapAnimation>,
 }
 
-pub fn load_resources<'r, A: Allocator + Clone>(
-    res: &'r Resources<'r, A>,
-) -> Result<ResourceIds, ResourceError> {
+pub fn load_resources<'r>(res: &'r Resources<'r>) -> Result<ResourceIds, ResourceError> {
     res.sprites.load("zorb")?.and_then(|sprite_id, sprite| {
         Ok(ResourceIds {
             sprite: sprite_id,
@@ -37,7 +34,7 @@ pub fn load_resources<'r, A: Allocator + Clone>(
     })
 }
 
-pub fn spawn<'gs, A: Allocator + Clone>(ctx: &mut Ctx<'gs, A>, ecs: &mut Ecs<A>) -> usize {
+pub fn spawn<'gs>(ctx: &mut Ctx<'gs>, ecs: &mut Ecs) -> usize {
     let res = ctx.resource_ids.zorb.as_ref().unwrap();
     let anims = SpriteAnims::from_array([
         SpriteAnim::from_sprite(res.sprite, res.anim_body_idle),

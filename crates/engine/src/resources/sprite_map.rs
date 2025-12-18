@@ -1,10 +1,9 @@
 use std::{
     cell::Cell,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
-use allocator_api2::{alloc::Allocator, vec::Vec};
-use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
 use sdl3::image::LoadTexture;
 use sdl3::render::{FRect, ScaleMode, Texture, TextureCreator};
 use serde::{Deserialize, Serialize};
@@ -212,16 +211,12 @@ impl SpriteMapAnimation {
     }
 
     /// Get a `SpriteMapAnimation` from the Aseprite export
-    fn from_aseprite<A: Allocator + Clone>(
-        allocator: A,
-        fts: &AsepriteAnim,
-        all_cels: &[AsepriteCel],
-    ) -> Self {
-        let mut seen_layers = HashSet::new_in(allocator.clone());
-        let mut unique_layers = Vec::new_in(allocator.clone());
+    fn from_aseprite(fts: &AsepriteAnim, all_cels: &[AsepriteCel]) -> Self {
+        let mut seen_layers = HashSet::new();
+        let mut unique_layers = Vec::new();
 
         // A map of: frame index -> (frame duration, layer cel indices)
-        let mut frames: HashMap<u8, (u16, Vec<u16>), _, A> = HashMap::new_in(allocator.clone());
+        let mut frames: HashMap<u8, (u16, Vec<u16>)> = HashMap::new();
         for (sprite_map_i, cel) in all_cels.iter().enumerate() {
             let (anim_name, frame_i, layer_name) = split_cel_name(&cel.name);
 
@@ -354,38 +349,37 @@ struct SerializedSpriteMap {
 }
 
 // Holds many sprites in one single image. Each frame can be indexed from this map.
-pub struct SpriteMap<'tex, A: Allocator> {
+pub struct SpriteMap<'tex> {
     id: Id<SpriteMapIdMarker>,
     pub tex: Texture<'tex>,
-    pub cels: Vec<SpriteMapCel, A>,
+    pub cels: Vec<SpriteMapCel>,
 
-    animation_names: HashMap<String, Id<SpriteMapAnimation>, DefaultHashBuilder, A>,
-    animations: Vec<SpriteMapAnimation, A>,
+    animation_names: HashMap<String, Id<SpriteMapAnimation>>,
+    animations: Vec<SpriteMapAnimation>,
 
-    tileset_names: HashMap<String, Id<Tileset>, DefaultHashBuilder, A>,
-    tilesets: Vec<Tileset, A>,
+    tileset_names: HashMap<String, Id<Tileset>>,
+    tilesets: Vec<Tileset>,
 }
 
 /// Just to use Ids without messing with lifetimes
 pub struct SpriteMapIdMarker;
 
-impl<'tex, A: Allocator + Clone> Resource<'tex> for SpriteMap<'tex, A> {
+impl<'tex> Resource<'tex> for SpriteMap<'tex> {
     type Id = SpriteMapIdMarker;
 }
 
-impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
+impl<'tex> SpriteMap<'tex> {
     #[expect(clippy::type_complexity)]
     fn sort_names_and_ids<T>(
-        allocator: &A,
         id: Id<SpriteMapIdMarker>,
         values: HashMap<String, T>,
-    ) -> (HashMap<String, Id<T>, DefaultHashBuilder, A>, Vec<T, A>) {
-        let mut sorted: Vec<_, A> = Vec::with_capacity_in(values.len(), allocator.clone());
+    ) -> (HashMap<String, Id<T>>, Vec<T>) {
+        let mut sorted = Vec::with_capacity(values.len());
         sorted.extend(values);
         sorted.sort_by(|(a_name, _), (b_name, _)| a_name.cmp(b_name));
 
-        let mut names: HashMap<_, _, _, A> = HashMap::new_in(allocator.clone());
-        let mut val_vec: Vec<_, A> = Vec::with_capacity_in(sorted.len(), allocator.clone());
+        let mut names = HashMap::new();
+        let mut val_vec = Vec::with_capacity(sorted.len());
         for (i, (name, val)) in sorted.into_iter().enumerate() {
             let anim_id = Id::<T>::new_split(id.full() as u16, i as u16);
 
@@ -396,17 +390,11 @@ impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
         (names, val_vec)
     }
 
-    fn new_in(
-        allocator: A,
-        id: Id<SpriteMapIdMarker>,
-        tex: Texture<'tex>,
-        metadata: SerializedSpriteMap,
-    ) -> Self {
-        let (animation_names, animations) =
-            Self::sort_names_and_ids(&allocator, id, metadata.animations);
-        let (tileset_names, tilesets) = Self::sort_names_and_ids(&allocator, id, metadata.tilesets);
+    fn new(id: Id<SpriteMapIdMarker>, tex: Texture<'tex>, metadata: SerializedSpriteMap) -> Self {
+        let (animation_names, animations) = Self::sort_names_and_ids(id, metadata.animations);
+        let (tileset_names, tilesets) = Self::sort_names_and_ids(id, metadata.tilesets);
 
-        let mut cels = Vec::with_capacity_in(metadata.cels.len(), allocator);
+        let mut cels = Vec::with_capacity(metadata.cels.len());
         cels.extend(metadata.cels);
 
         Self {
@@ -461,11 +449,7 @@ impl<'tex, A: Allocator + Clone> SpriteMap<'tex, A> {
 ///
 #[expect(clippy::disallowed_methods)]
 /// This allocates memory.
-pub fn ase_to_res<A: Allocator + Clone>(
-    allocator: A,
-    root_path: &Path,
-    res_path: &Path,
-) -> Result<(), String> {
+pub fn ase_to_res(root_path: &Path, res_path: &Path) -> Result<(), String> {
     let full_path = root_path.join(res_path);
     let tex_path = res_path.with_extension("png");
     let tex_full_path = full_path.with_extension("png");
@@ -577,7 +561,7 @@ pub fn ase_to_res<A: Allocator + Clone>(
             .map(|anim| {
                 (
                     anim.name.to_owned(),
-                    SpriteMapAnimation::from_aseprite(allocator.clone(), anim, &metadata.cels),
+                    SpriteMapAnimation::from_aseprite(anim, &metadata.cels),
                 )
             })
             .collect(),
@@ -591,22 +575,16 @@ pub fn ase_to_res<A: Allocator + Clone>(
 }
 
 /// Loads a `SpriteMap` from a PNG and a JSON file
-pub struct SpriteMapLoader<T, A: Allocator + Clone> {
+pub struct SpriteMapLoader<T> {
     pub(super) root_path: PathBuf,
 
-    allocator: A,
     sdl_loader: TextureCreator<T>,
     next_id: Cell<Id<SpriteMapIdMarker>>,
 }
 
-impl<T, A: Allocator + Clone> SpriteMapLoader<T, A> {
-    pub fn new(
-        allocator: A,
-        sdl_loader: TextureCreator<T>,
-        root_path: impl Into<PathBuf>,
-    ) -> SpriteMapLoader<T, A> {
+impl<T> SpriteMapLoader<T> {
+    pub fn new(sdl_loader: TextureCreator<T>, root_path: impl Into<PathBuf>) -> SpriteMapLoader<T> {
         Self {
-            allocator,
             sdl_loader,
             root_path: root_path.into(),
             next_id: Cell::new(Id::<SpriteMapIdMarker>::new(0)),
@@ -614,12 +592,11 @@ impl<T, A: Allocator + Clone> SpriteMapLoader<T, A> {
     }
 }
 
-impl<'l, 'tex, T, A: Allocator + Clone> ResourceLoader<'l, 'tex, SpriteMap<'tex, A>>
-    for SpriteMapLoader<T, A>
+impl<'l, 'tex, T> ResourceLoader<'l, 'tex, SpriteMap<'tex>> for SpriteMapLoader<T>
 where
     'l: 'tex,
 {
-    fn load(&'l self, path: &'_ str) -> Result<SpriteMap<'tex, A>, super::manager::ResourceError> {
+    fn load(&'l self, path: &'_ str) -> Result<SpriteMap<'tex>, super::manager::ResourceError> {
         let full_path = self.root_path.join(path);
         let res_path = full_path.with_extension("res.json");
 
@@ -635,7 +612,7 @@ where
             .or(Err(ResourceError::LoadFailed))?;
         tex.set_scale_mode(ScaleMode::Nearest);
 
-        let sm = SpriteMap::new_in(self.allocator.clone(), self.next_id.get(), tex, res);
+        let sm = SpriteMap::new(self.next_id.get(), tex, res);
 
         let next = self.next_id.get().next();
         self.next_id.set(next);
@@ -645,5 +622,5 @@ where
 }
 
 /// A resource manager for `SpriteMap`
-pub type SpriteMapManager<'tex, T, A> =
-    ResourceManager<'tex, 'tex, SpriteMap<'tex, A>, SpriteMapLoader<T, A>, A>;
+pub type SpriteMapManager<'tex, T> =
+    ResourceManager<'tex, 'tex, SpriteMap<'tex>, SpriteMapLoader<T>>;

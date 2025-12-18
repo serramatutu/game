@@ -5,11 +5,9 @@ members = [
 ]
 
 [workspace.dependencies]
-allocator-api2 = { version = "0.2.9", features = ["serde"] }
 anyhow = "1"
 derivative = "2.2.0"
 euclid = { version = "0.22", features = ["serde"] }
-hashbrown = { version = "0.16", features = ["allocator-api2", "serde"] }
 heapless = { version = "0.9", features = ["serde"] }
 libloading = "0.8" 
 num-traits = "0.2"

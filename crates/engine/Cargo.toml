@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-allocator-api2 = { workspace = true }
 derivative = { workspace = true }
 euclid = { workspace = true }
-hashbrown = { workspace = true }
 heapless = { workspace = true }
 sdl3 = { workspace = true }
 serde = { workspace = true }

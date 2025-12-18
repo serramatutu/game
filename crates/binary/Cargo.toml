@@ -8,7 +8,6 @@ backtrace-on-stack-overflow = "0.3.0"
 
 engine = { path = "../engine" }
 
-allocator-api2 = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 sdl3 = { workspace = true }

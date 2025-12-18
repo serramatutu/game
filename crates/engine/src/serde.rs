@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use hashbrown::HashMap;
 use serde::{Serialize, Serializer};
 
 /// For use with serde's [serialize_with] attribute

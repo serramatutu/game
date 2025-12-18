@@ -1,10 +1,9 @@
 use std::{
     cell::{Ref, RefCell},
+    collections::HashMap,
     marker::PhantomData,
 };
 
-use allocator_api2::alloc::{Allocator, Global as GlobalAllocator};
-use hashbrown::{DefaultHashBuilder, HashMap};
 use thiserror::Error;
 
 use crate::types::Id;
@@ -26,44 +25,40 @@ pub trait ResourceLoader<'l, 'res, Res: Resource<'res>> {
 }
 
 /// Used for interior mutability of `ResourceManager`
-struct ResourceManagerInner<'res, Res, Alloc>
+struct ResourceManagerInner<'res, Res>
 where
     Res: Resource<'res>,
-    Alloc: Allocator + Clone,
 {
     next_id: Id<Res::Id>,
-    cache: HashMap<Id<Res::Id>, Res, DefaultHashBuilder, Alloc>,
+    cache: HashMap<Id<Res::Id>, Res>,
 }
 
 /// Cache any resources loaded by a `ResourceLoader`
-pub struct ResourceManager<'l, 'res, Res, Load, Alloc = GlobalAllocator>
+pub struct ResourceManager<'l, 'res, Res, Load>
 where
     Load: ResourceLoader<'l, 'res, Res>,
     Res: Resource<'res>,
-    Alloc: Allocator + Clone,
 {
     _pd: PhantomData<&'l u8>,
 
     pub(super) loader: Load,
-    inner: RefCell<ResourceManagerInner<'res, Res, Alloc>>,
+    inner: RefCell<ResourceManagerInner<'res, Res>>,
 }
 
-pub struct LoadedResource<'rm, 'res, Res, Load, Alloc>
+pub struct LoadedResource<'rm, 'res, Res, Load>
 where
     Res: Resource<'res>,
-    Alloc: Allocator + Clone,
     Load: ResourceLoader<'rm, 'res, Res>,
 {
     _pd: PhantomData<&'res u8>,
 
     id: Id<Res::Id>,
-    manager: &'rm ResourceManager<'rm, 'res, Res, Load, Alloc>,
+    manager: &'rm ResourceManager<'rm, 'res, Res, Load>,
 }
 
-impl<'rm, 'res, Res, Load, Alloc> LoadedResource<'rm, 'res, Res, Load, Alloc>
+impl<'rm, 'res, Res, Load> LoadedResource<'rm, 'res, Res, Load>
 where
     Res: Resource<'res>,
-    Alloc: Allocator + Clone,
     Load: ResourceLoader<'rm, 'res, Res>,
 {
     pub fn and_then<F, R>(self, callback: F) -> R
@@ -75,19 +70,18 @@ where
     }
 }
 
-impl<'l, 'res, Res, Load, Alloc> ResourceManager<'l, 'res, Res, Load, Alloc>
+impl<'l, 'res, Res, Load> ResourceManager<'l, 'res, Res, Load>
 where
     Res: Resource<'res>,
-    Alloc: Allocator + Clone,
     Load: ResourceLoader<'l, 'res, Res>,
 {
-    pub fn new(allocator: Alloc, loader: Load) -> Self {
+    pub fn new(loader: Load) -> Self {
         ResourceManager {
             _pd: PhantomData,
             loader,
             inner: RefCell::new(ResourceManagerInner {
                 next_id: Id::new(0),
-                cache: HashMap::new_in(allocator),
+                cache: HashMap::new(),
             }),
         }
     }
@@ -96,7 +90,7 @@ where
     pub fn load(
         &'l self,
         key: &'_ str,
-    ) -> Result<LoadedResource<'l, 'res, Res, Load, Alloc>, ResourceError> {
+    ) -> Result<LoadedResource<'l, 'res, Res, Load>, ResourceError> {
         let id = {
             let mut self_mut = self.inner.borrow_mut();
             let loaded = self.loader.load(key)?;
@@ -116,7 +110,7 @@ where
 
     /// Get a resource that was already preloaded otherwise panic
     pub fn get(&self, id: Id<Res::Id>) -> Ref<'_, Res> {
-        Ref::<'_, ResourceManagerInner<'res, Res, Alloc>>::map(self.inner.borrow(), |b| {
+        Ref::<'_, ResourceManagerInner<'res, Res>>::map(self.inner.borrow(), |b| {
             b.cache
                 .get(&id)
                 .unwrap_or_else(|| panic!("Resource ID '{id:?}' was not loaded"))

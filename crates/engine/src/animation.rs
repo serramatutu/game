@@ -1,4 +1,3 @@
-use allocator_api2::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 /// A keyframe in an animation

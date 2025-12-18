@@ -1,11 +1,10 @@
 use crate::{Ctx, with_components};
-use allocator_api2::alloc::Allocator;
 use anyhow::Result;
 use derivative::Derivative;
 use engine::types::Reset;
 use heapless::Vec;
 use paste::paste;
-use std::{iter::Iterator, marker::PhantomData};
+use std::iter::Iterator;
 
 pub mod components;
 pub use components::Entity;
@@ -27,8 +26,7 @@ const MAX_ENTITIES: usize = 8192;
 /// - The zero index entity is a null entity that is never in the world.
 #[derive(Derivative, Debug)]
 #[derivative(Clone(clone_from = "true"))]
-pub struct Ecs<A: Allocator + Clone> {
-    _pd: PhantomData<A>,
+pub struct Ecs {
     components: components::Components,
     entities: Vec<Entity, MAX_ENTITIES>,
 }
@@ -38,11 +36,11 @@ const NUM_SYSTEMS: usize = 4;
 #[cfg(not(debug_assertions))]
 const NUM_SYSTEMS: usize = 3;
 
-impl<A: Allocator + Clone> Ecs<A> {
+impl Ecs {
     /// All the registered ECS systems
     ///
     /// They execute in order from top to bottom
-    const SYSTEMS: [SystemFn<A>; NUM_SYSTEMS] = [
+    const SYSTEMS: [SystemFn; NUM_SYSTEMS] = [
         systems::navigation::follow::update_and_render,
         systems::draw::update_and_render_terrain,
         systems::draw::update_and_render_animations,
@@ -71,7 +69,7 @@ impl<A: Allocator + Clone> Ecs<A> {
         }
     }
 
-    pub fn update_and_render<'gs>(&mut self, ctx: &mut Ctx<'gs, A>, prev: &Ecs<A>) -> Result<()> {
+    pub fn update_and_render<'gs>(&mut self, ctx: &mut Ctx<'gs>, prev: &Ecs) -> Result<()> {
         for sys in Self::SYSTEMS {
             sys(ctx, prev, self)?;
         }
@@ -79,7 +77,7 @@ impl<A: Allocator + Clone> Ecs<A> {
     }
 }
 
-impl<A: Allocator + Clone> Reset for Ecs<A> {
+impl Reset for Ecs {
     fn reset(&mut self) {
         self.components.reset();
         self.entities.resize(1, Default::default()).unwrap();
@@ -229,7 +227,7 @@ macro_rules! impl_accessors {
     }
 }
 
-impl<A: Allocator + Clone> Ecs<A> {
+impl Ecs {
     with_components!(impl_accessors);
 }
 
@@ -269,7 +267,7 @@ macro_rules! impl_entity_spawner {
             }
 
             /// Spawn the entity into the ECS world
-            pub fn spawn<A: Allocator + Clone>(self, ecs: &mut Ecs<A>) -> usize {
+            pub fn spawn(self, ecs: &mut Ecs) -> usize {
                 let entity_id = ecs.entities.len();
                 // FIXME: what to do when there are too many entities that get spawned? Fail
                 // silently?
@@ -279,7 +277,7 @@ macro_rules! impl_entity_spawner {
                 $(
                     if let Some(value) = self.$attr {
                         paste! {
-                            Ecs::<A>::[<push_ $attr _unchecked>](&mut ecs.components.$attr, entity_id, entity, value);
+                            Ecs::[<push_ $attr _unchecked>](&mut ecs.components.$attr, entity_id, entity, value);
                         }
                     }
                 )*

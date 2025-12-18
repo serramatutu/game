@@ -9,7 +9,6 @@ crate-type = ["dylib"]
 [dependencies]
 engine = { path = "../engine" }
 
-allocator-api2 = { workspace = true }
 anyhow = { workspace = true }
 derivative = { workspace = true }
 heapless = { workspace = true }
